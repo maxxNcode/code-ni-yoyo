@@ -160,6 +160,26 @@
             white-space: pre !important;
             overflow-x: auto !important;
         }
+
+        /* Highlighting styles */
+        .highlight-mark {
+            background-color: #fef08a;
+            color: #1f2937;
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .highlight-mark:hover {
+            background-color: #fde047;
+            outline: 1px solid #eab308;
+        }
+
+        .highlight-btn {
+            path {
+                stroke-width: 2;
+            }
+        }
     </style>
 </head>
 
@@ -310,6 +330,21 @@
                         </button>
                     </form>
                 </div>
+
+                <!-- Upload Document File -->
+                <div class="p-3 border-b border-slate-800/60 hidden admin-only bg-slate-800/10">
+                    <button onclick="document.getElementById('file-upload-input').click()"
+                        class="w-full btn-hover bg-slate-800 hover:bg-purple-500/20 hover:text-purple-400 text-slate-400 px-3 py-2.5 rounded-md text-sm border border-slate-700/50 hover:border-purple-500/30 flex items-center justify-center gap-2 transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
+                        <span>Upload PDF/DOCX</span>
+                    </button>
+                    <input type="file" id="file-upload-input" accept=".pdf,.docx"
+                        class="hidden" onchange="uploadDocumentFile()">
+                </div>
+
                 <div class="flex-1 overflow-y-auto p-2 space-y-1 scroll-smooth" id="files-list">
                 </div>
             </div>
@@ -383,6 +418,26 @@
                             </svg>
                             <span class="hidden md:inline">Edit</span>
                         </button>
+                        <button id="btn-highlight" onclick="highlightSelectedText()"
+                            class="btn-hover p-2 md:px-4 md:py-1.5 text-xs font-semibold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 rounded-md transition-all hidden flex items-center gap-1.5"
+                            title="Select text and click to highlight">
+                            <svg class="w-4 h-4 highlight-btn" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9.953 6.5l-3.5 3.5c-.5.5-.5 1.5 0 2l7.5 7.5c.5.5 1.5.5 2 0l3.5-3.5m-4-4l3.5-3.5m-7 11l-3.5-3.5">
+                                </path>
+                            </svg>
+                            <span class="hidden md:inline">Highlight</span>
+                        </button>
+                        <button id="btn-clear-highlight" onclick="clearHighlight()"
+                            class="btn-hover p-2 md:px-4 md:py-1.5 text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 rounded-md transition-all hidden flex items-center gap-1.5"
+                            title="Clear selected highlight">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12">
+                                </path>
+                            </svg>
+                            <span class="hidden md:inline">Clear</span>
+                        </button>
                         <button id="btn-save" onclick="saveFile()"
                             class="btn-hover p-2 md:px-4 md:py-1.5 text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-white rounded-md transition-all hidden admin-only flex items-center gap-1.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,6 +463,54 @@
                         <textarea id="code-editor"
                             class="w-full h-full bg-[#1e1e24] text-[#abb2bf] p-6 text-[13px] leading-relaxed font-mono focus:outline-none resize-none selection:bg-emerald-500/30 overflow-auto"
                             spellcheck="false" wrap="off"></textarea>
+                    </div>
+
+                    <!-- Document Mode (For PDF/DOCX) -->
+                    <div id="document-mode" class="flex-1 relative hidden w-full flex flex-col min-w-0">
+                        <!-- Document Toolbar -->
+                        <div class="flex items-center gap-1 p-3 bg-slate-900/50 border-b border-slate-800 flex-wrap">
+                            <button id="btn-doc-bold" onclick="formatDocument('bold')" title="Bold (Ctrl+B)"
+                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h8a4 4 0 014 4v8a4 4 0 01-4 4H6V4zm0 10h8"></path>
+                                </svg>
+                            </button>
+                            <button id="btn-doc-italic" onclick="formatDocument('italic')" title="Italic (Ctrl+I)"
+                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 5h4m-2 0v14m4-4h4"></path>
+                                </svg>
+                            </button>
+                            <button id="btn-doc-underline" onclick="formatDocument('underline')" title="Underline (Ctrl+U)"
+                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5v10a4 4 0 004 4h2a4 4 0 004-4V5m0 10H7"></path>
+                                </svg>
+                            </button>
+                            <div class="hidden sm:block w-px h-6 bg-slate-700 mx-1"></div>
+                            <button id="btn-doc-ul" onclick="formatDocument('insertUnorderedList')" title="Bullet List"
+                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                </svg>
+                            </button>
+                            <button id="btn-doc-ol" onclick="formatDocument('insertOrderedList')" title="Numbered List"
+                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-9.414 9.414a1 1 0 00-.293.707m0 0V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-7.414"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Document Content (Contenteditable) -->
+                        <div id="document-editor"
+                            class="flex-1 overflow-auto bg-white text-slate-900 p-8 focus:outline-none text-[14px] leading-relaxed hidden admin-only"
+                            contenteditable="false"
+                            spellcheck="true">
+                        </div>
+                        <div id="document-viewer"
+                            class="flex-1 overflow-auto bg-white text-slate-900 p-8 text-[14px] leading-relaxed">
+                        </div>
                     </div>
                 </div>
 
@@ -513,6 +616,8 @@
                 case 'css': return '<svg class="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="currentColor"><path d="M2.5 4h19l-1.6 15L12 21.5 4.1 19 2.5 4zm3.3 3.5l.5 6h7.7l-.3 3.2-2.7.7-2.7-.7-.2-2h-2.5l.4 4 4.8 1.5 5-1.5.8-8.7H5.8z"/></svg>';
                 case 'json': return '<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 7v10c0 2 1.5 3 3 3h10c2.5 0 3-1.5 3-3V7c0-2.5-.5-3-3-3H7c-1.5 0-3 1-3 3z"/></svg>';
                 case 'md': return '<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>';
+                case 'pdf': return '<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+                case 'docx': return '<svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
                 default: return '<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>';
             }
         }
@@ -1027,6 +1132,7 @@
 
             try {
                 let content = '';
+                let fileType = 'code';
 
                 // Fetch from cache if available, else API
                 if (fileCache[id] !== undefined) {
@@ -1034,16 +1140,45 @@
                 } else {
                     const fileData = await api(`/files/${id}`);
                     content = fileData.content || '';
+                    fileType = fileData.file_type || 'code';
                     fileCache[id] = content; // Store in cache
                 }
 
-                elCodeEditor.value = content;
+                currentFileType = fileType;
 
-                // Set language class correctly for Highlight.js refresh
-                const ext = filename.split('.').pop();
-                elCodeViewer.className = `h-full block p-6 text-[13px] leading-relaxed font-mono selection:bg-emerald-500/30 language-${ext}`;
-                elCodeViewer.textContent = content;
-                hljs.highlightElement(elCodeViewer);
+                // Hide both code and document editors initially
+                elViewMode.classList.add('hidden');
+                elEditMode.classList.add('hidden');
+                document.getElementById('document-mode').classList.add('hidden');
+
+                if (fileType === 'document') {
+                    // Display document editor
+                    const docEditor = document.getElementById('document-editor');
+                    const docViewer = document.getElementById('document-viewer');
+
+                    docEditor.innerHTML = content;
+                    docViewer.innerHTML = content;
+
+                    elBtnEditToggle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Edit`;
+
+                    document.getElementById('document-mode').classList.remove('hidden');
+                    if (isEditing) toggleEditMode();
+                } else {
+                    // Display code editor
+                    elCodeEditor.value = content;
+
+                    // Set language class correctly for Highlight.js refresh
+                    const ext = filename.split('.').pop();
+                    elCodeViewer.className = `h-full block p-6 text-[13px] leading-relaxed font-mono selection:bg-emerald-500/30 language-${ext}`;
+                    elCodeViewer.textContent = content;
+                    hljs.highlightElement(elCodeViewer);
+
+                    // Load and render highlights
+                    await loadHighlights();
+                    updateHighlightButtonVisibility();
+
+                    elViewMode.classList.remove('hidden');
+                }
 
                 // Default to view mode
                 if (isEditing) toggleEditMode();
@@ -1068,21 +1203,34 @@
 
         async function saveFile() {
             if (!currentFileId) return;
-            const newContent = elCodeEditor.value;
 
             const originalText = elBtnSave.innerHTML;
             elBtnSave.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving`;
 
             try {
+                let newContent;
+
+                if (currentFileType === 'document') {
+                    newContent = document.getElementById('document-editor').innerHTML;
+                } else {
+                    newContent = elCodeEditor.value;
+                }
+
                 await api(`/files/${currentFileId}`, 'PUT', { content: newContent });
 
-                fileCache[currentFileId] = newContent; // Update cache
-                elCodeViewer.textContent = newContent;
-                hljs.highlightElement(elCodeViewer);
+                if (currentFileType === 'code') {
+                    fileCache[currentFileId] = newContent; // Update cache
+                    elCodeViewer.textContent = newContent;
+                    hljs.highlightElement(elCodeViewer);
+                } else {
+                    document.getElementById('document-viewer').innerHTML = newContent;
+                }
 
                 showToast("File saved successfully!");
                 toggleEditMode();
-            } catch (e) { } finally {
+            } catch (e) {
+                showToast("Failed to save: " + e.message, 'error');
+            } finally {
                 elBtnSave.innerHTML = originalText;
             }
         }
@@ -1144,6 +1292,29 @@
         // --- UI Interactions ---
         function toggleEditMode() {
             isEditing = !isEditing;
+
+            // Handle document editing separately
+            if (currentFileType === 'document') {
+                toggleDocumentEditMode();
+                if (isEditing) {
+                    elBtnEditToggle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Cancel`;
+                    elBtnEditToggle.classList.replace('bg-indigo-500/10', 'bg-slate-700');
+                    elBtnEditToggle.classList.replace('text-indigo-400', 'text-slate-300');
+                    elBtnSave.classList.remove('hidden');
+                    document.getElementById('btn-back-dashboard').classList.add('hidden');
+                    document.getElementById('btn-toggle-files').classList.add('hidden');
+                } else {
+                    elBtnEditToggle.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg> Edit`;
+                    elBtnEditToggle.classList.replace('bg-slate-700', 'bg-indigo-500/10');
+                    elBtnEditToggle.classList.replace('text-slate-300', 'text-indigo-400');
+                    elBtnSave.classList.add('hidden');
+                    document.getElementById('btn-back-dashboard').classList.remove('hidden');
+                    document.getElementById('btn-toggle-files').classList.remove('hidden');
+                }
+                return;
+            }
+
+            // Handle code editing
             if (isEditing) {
                 elViewMode.classList.add('hidden');
                 elEditMode.classList.remove('hidden');
@@ -1153,6 +1324,7 @@
                 elBtnSave.classList.remove('hidden');
                 document.getElementById('btn-back-dashboard').classList.add('hidden');
                 document.getElementById('btn-toggle-files').classList.add('hidden');
+                updateHighlightButtonVisibility();
                 elCodeEditor.focus();
             } else {
                 elEditMode.classList.add('hidden');
@@ -1163,6 +1335,7 @@
                 elBtnSave.classList.add('hidden');
                 document.getElementById('btn-back-dashboard').classList.remove('hidden');
                 document.getElementById('btn-toggle-files').classList.remove('hidden');
+                updateHighlightButtonVisibility();
 
                 // Revert to viewer content if cancelled
                 elCodeEditor.value = elCodeViewer.textContent;
@@ -1180,6 +1353,314 @@
                     '"': '&quot;'
                 }[tag])
             );
+        }
+
+        // --- DOCUMENT EDITOR FUNCTIONS ---
+        let currentFileType = 'code';
+
+        async function uploadDocumentFile() {
+            if (!currentProjectId || !isAdmin) {
+                showToast('Unable to upload file', 'error');
+                return;
+            }
+
+            const fileInput = document.getElementById('file-upload-input');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            if (!validTypes.includes(file.type)) {
+                showToast('Only PDF and DOCX files are allowed', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`/api/projects/${currentProjectId}/files/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Upload failed');
+                }
+
+                const newFile = await response.json();
+                fileCache[newFile.id] = newFile.content;
+
+                // Clear input
+                fileInput.value = '';
+
+                // Reload files and select the new one
+                await loadFiles();
+                showToast('Document uploaded successfully!', 'success');
+            } catch (error) {
+                showToast('Failed to upload: ' + error.message, 'error');
+            }
+        }
+
+        function formatDocument(command, value = null) {
+            // Only allow formatting in edit mode
+            if (!isAdmin || isEditing === false) return;
+
+            try {
+                if (value) {
+                    document.execCommand(command, false, value);
+                } else {
+                    document.execCommand(command, false, null);
+                }
+            } catch (err) {
+                console.error('Format error:', err);
+            }
+        }
+
+        function toggleDocumentEditMode() {
+            const docEditor = document.getElementById('document-editor');
+            const docViewer = document.getElementById('document-viewer');
+            const formatBtns = document.querySelectorAll('#btn-doc-bold, #btn-doc-italic, #btn-doc-underline, #btn-doc-ul, #btn-doc-ol');
+
+            if (isEditing) {
+                // Switch to edit mode
+                docEditor.contentEditable = 'true';
+                docEditor.classList.remove('hidden');
+                docViewer.classList.add('hidden');
+                docEditor.focus();
+                formatBtns.forEach(btn => btn.classList.remove('hidden'));
+            } else {
+                // Switch to view mode
+                docEditor.contentEditable = 'false';
+                docEditor.classList.add('hidden');
+                docViewer.classList.remove('hidden');
+                docViewer.innerHTML = docEditor.innerHTML;
+                formatBtns.forEach(btn => btn.classList.add('hidden'));
+            }
+        }
+
+        async function saveDocumentFile() {
+            if (!currentFileId || !isAdmin) return;
+
+            const docEditor = document.getElementById('document-editor');
+            const content = docEditor.innerHTML;
+
+            try {
+                await api(`/files/${currentFileId}`, 'PUT', { content });
+                showToast('Document saved successfully', 'success');
+            } catch (error) {
+                showToast('Failed to save document: ' + error.message, 'error');
+            }
+        }
+
+        // --- HIGHLIGHTING FUNCTIONS ---
+        let currentHighlights = [];
+
+        async function loadHighlights() {
+            if (!currentFileId) return;
+            try {
+                currentHighlights = await api(`/files/${currentFileId}/highlights`);
+                renderHighlights();
+            } catch (e) {
+                console.error('Failed to load highlights:', e);
+            }
+        }
+
+        function renderHighlights() {
+            // Clear previous highlighted elements
+            const existingHighlights = document.querySelectorAll('.highlight-mark');
+            existingHighlights.forEach(el => {
+                const parent = el.parentNode;
+                while (el.firstChild) {
+                    parent.insertBefore(el.firstChild, el);
+                }
+                parent.removeChild(el);
+            });
+
+            if (!currentHighlights || currentHighlights.length === 0) return;
+
+            // Get the total text content
+            const textContent = elCodeViewer.textContent;
+
+            // Create a new container to rebuild with highlights
+            const container = document.createElement('span');
+            let lastIndex = 0;
+
+            // Sort highlights by start position
+            const sortedHighlights = [...currentHighlights].sort((a, b) => a.start_pos - b.start_pos);
+
+            sortedHighlights.forEach(highlight => {
+                const { start_pos, end_pos } = highlight;
+
+                // Add text before highlight
+                if (start_pos > lastIndex) {
+                    container.appendChild(document.createTextNode(textContent.substring(lastIndex, start_pos)));
+                }
+
+                // Add highlighted text
+                const highlightSpan = document.createElement('span');
+                highlightSpan.className = 'highlight-mark';
+                highlightSpan.textContent = textContent.substring(start_pos, end_pos);
+                highlightSpan.dataset.highlightId = highlight.id;
+                highlightSpan.onclick = (e) => {
+                    e.stopPropagation();
+                    showHighlightMenu(highlight.id, e);
+                };
+                container.appendChild(highlightSpan);
+
+                lastIndex = end_pos;
+            });
+
+            // Add remaining text
+            if (lastIndex < textContent.length) {
+                container.appendChild(document.createTextNode(textContent.substring(lastIndex)));
+            }
+
+            // Replace content while preserving Highlight.js styling
+            elCodeViewer.innerHTML = '';
+            elCodeViewer.appendChild(container);
+        }
+
+        function getSelectionPositions() {
+            const selection = window.getSelection();
+            if (!selection.rangeCount || selection.toString() === '') {
+                return null;
+            }
+
+            const range = selection.getRangeAt(0);
+            const preContent = elCodeViewer.textContent;
+
+            // Calculate positions relative to code viewer content
+            const treWalker = document.createTreeWalker(
+                elCodeViewer,
+                NodeFilter.SHOW_TEXT,
+                null
+            );
+
+            let charCount = 0;
+            let startPos = -1;
+            let endPos = -1;
+            let node;
+
+            while (node = treWalker.nextNode()) {
+                const nextChar = charCount + node.length;
+
+                if (startPos === -1 && range.startContainer === node) {
+                    startPos = charCount + range.startOffset;
+                }
+
+                if (range.endContainer === node) {
+                    endPos = charCount + range.endOffset;
+                    break;
+                }
+
+                charCount = nextChar;
+            }
+
+            if (startPos === -1 || endPos === -1) {
+                return null;
+            }
+
+            return { start: startPos, end: endPos, text: selection.toString() };
+        }
+
+        async function highlightSelectedText() {
+            if (isAdmin === false) {
+                showToast('Only admins can highlight text', 'error');
+                return;
+            }
+
+            const positions = getSelectionPositions();
+            if (!positions) {
+                showToast('Please select text to highlight', 'warning');
+                return;
+            }
+
+            try {
+                const highlight = await api(`/files/${currentFileId}/highlights`, 'POST', {
+                    start_pos: positions.start,
+                    end_pos: positions.end,
+                    text: positions.text
+                });
+
+                currentHighlights.push(highlight);
+                renderHighlights();
+                window.getSelection().removeAllRanges();
+                showToast('Text highlighted successfully', 'success');
+            } catch (error) {
+                showToast('Failed to highlight text: ' + error.message, 'error');
+            }
+        }
+
+        async function clearHighlight() {
+            if (isAdmin === false) {
+                showToast('Only admins can delete highlights', 'error');
+                return;
+            }
+
+            const selection = window.getSelection();
+            if (!selection.rangeCount || selection.toString() === '') {
+                showToast('Please select a highlighted text to clear', 'warning');
+                return;
+            }
+
+            const positions = getSelectionPositions();
+            if (!positions) return;
+
+            // Find overlapping highlights
+            const toDelete = currentHighlights.filter(h =>
+                h.start_pos <= positions.end && h.end_pos >= positions.start
+            );
+
+            if (toDelete.length === 0) {
+                showToast('No highlights found in selection', 'warning');
+                return;
+            }
+
+            for (const highlight of toDelete) {
+                try {
+                    await api(`/highlights/${highlight.id}`, 'DELETE');
+                    currentHighlights = currentHighlights.filter(h => h.id !== highlight.id);
+                } catch (error) {
+                    showToast('Failed to delete highlight: ' + error.message, 'error');
+                }
+            }
+
+            renderHighlights();
+            window.getSelection().removeAllRanges();
+            showToast('Highlights cleared', 'success');
+        }
+
+        function showHighlightMenu(highlightId, event) {
+            if (!isAdmin) return;
+
+            if (confirm('Delete this highlight?')) {
+                currentHighlights = currentHighlights.filter(h => h.id !== highlightId);
+                api(`/highlights/${highlightId}`, 'DELETE').then(() => {
+                    renderHighlights();
+                    showToast('Highlight deleted', 'success');
+                }).catch(err => {
+                    showToast('Failed to delete highlight', 'error');
+                });
+            }
+        }
+
+        // Add support for showing/hiding highlight buttons in view mode
+        function updateHighlightButtonVisibility() {
+            const highlightBtn = document.getElementById('btn-highlight');
+            const clearBtn = document.getElementById('btn-clear-highlight');
+
+            if (!currentFileId || isEditing || !isAdmin) {
+                highlightBtn?.classList.add('hidden');
+                clearBtn?.classList.add('hidden');
+            } else {
+                highlightBtn?.classList.remove('hidden');
+                clearBtn?.classList.remove('hidden');
+            }
         }
 
         // Start App

@@ -3,6 +3,10 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
+const JSZip = require('jszip');
+const { Document } = require('docx');
 
 // Import libSQL client
 const { createClient } = require('@libsql/client');
@@ -50,6 +54,55 @@ const requireAuth = (req, res, next) => {
     }
     next();
 };
+
+// Multer Configuration for File Uploads
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only PDF and DOCX files are allowed'));
+        }
+    }
+});
+
+// PDF to Text Parser
+async function extractPdfText(buffer) {
+    try {
+        const data = await pdfParse(buffer);
+        return data.text;
+    } catch (err) {
+        throw new Error('Failed to parse PDF: ' + err.message);
+    }
+}
+
+// DOCX to Text Parser (Simple XML parsing)
+async function extractDocxText(buffer) {
+    try {
+        // For DOCX files, we need to unzip and extract text from document.xml
+        const JSZip = require('jszip');
+        const zip = new JSZip();
+        await zip.loadAsync(buffer);
+
+        const docXml = await zip.file('word/document.xml')?.async('text');
+        if (!docXml) {
+            throw new Error('Invalid DOCX file structure');
+        }
+
+        // Simple regex extraction of text content from Word XML
+        const textMatches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+        const text = textMatches
+            .map(match => match.replace(/<[^>]*>/g, ''))
+            .join('');
+
+        return text;
+    } catch (err) {
+        throw new Error('Failed to parse DOCX: ' + err.message);
+    }
+}
 
 // Middleware
 app.use(express.json());
@@ -102,6 +155,35 @@ async function initDatabase() {
                 UNIQUE(project_id, path)
             )
         `);
+
+        // Create Highlights Table
+        await client.execute(`
+            CREATE TABLE IF NOT EXISTS highlights (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_id INTEGER,
+                start_pos INTEGER,
+                end_pos INTEGER,
+                highlighted_text TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
+            )
+        `);
+
+        // Migration: Add file_type column if it doesn't exist
+        try {
+            await client.execute("ALTER TABLE files ADD COLUMN file_type TEXT DEFAULT 'code'");
+            console.log("Added file_type column to files table.");
+        } catch (e) {
+            // Column likely already exists
+        }
+
+        // Migration: Add original_filename column if it doesn't exist
+        try {
+            await client.execute("ALTER TABLE files ADD COLUMN original_filename TEXT");
+            console.log("Added original_filename column to files table.");
+        } catch (e) {
+            // Column likely already exists
+        }
 
         console.log("Connected to the Turso SQLite database.");
     } catch (err) {
@@ -202,12 +284,56 @@ app.post('/api/projects/:id/files', requireAuth, async (req, res) => {
 
     try {
         const result = await client.execute({
-            sql: "INSERT INTO files (project_id, filename, content) VALUES (?, ?, ?)",
-            args: [projectId, filename, content || '']
+            sql: "INSERT INTO files (project_id, filename, content, file_type) VALUES (?, ?, ?, ?)",
+            args: [projectId, filename, content || '', 'code']
         });
-        res.json({ id: Number(result.lastInsertRowid), project_id: projectId, filename, content });
+        res.json({ id: Number(result.lastInsertRowid), project_id: projectId, filename, content, file_type: 'code' });
     } catch (err) {
         res.status(400).json({ error: err.message });
+    }
+});
+
+// Upload file endpoint for PDF/DOCX
+app.post('/api/projects/:id/files/upload', requireAuth, upload.single('file'), async (req, res) => {
+    if (!client) return res.status(503).json({ error: 'Database not configured' });
+
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const projectId = req.params.id;
+    const fileName = req.file.originalname;
+    const fileExt = fileName.split('.').pop().toLowerCase();
+
+    if (!['pdf', 'docx'].includes(fileExt)) {
+        return res.status(400).json({ error: 'Only PDF and DOCX files are allowed' });
+    }
+
+    try {
+        let extractedText = '';
+
+        if (fileExt === 'pdf') {
+            extractedText = await extractPdfText(req.file.buffer);
+        } else if (fileExt === 'docx') {
+            extractedText = await extractDocxText(req.file.buffer);
+        }
+
+        // Store the extracted text as content
+        const result = await client.execute({
+            sql: "INSERT INTO files (project_id, filename, content, file_type, original_filename) VALUES (?, ?, ?, ?, ?)",
+            args: [projectId, fileName.replace(/\.[^.]+$/, ''), extractedText, 'document', fileName]
+        });
+
+        res.json({
+            id: Number(result.lastInsertRowid),
+            project_id: projectId,
+            filename: fileName.replace(/\.[^.]+$/, ''),
+            original_filename: fileName,
+            content: extractedText,
+            file_type: 'document'
+        });
+    } catch (err) {
+        res.status(400).json({ error: 'Failed to process file: ' + err.message });
     }
 });
 
@@ -330,6 +456,60 @@ app.delete('/api/files/:id', requireAuth, async (req, res) => {
             args: [req.params.id]
         });
         res.json({ message: "File deleted" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- HIGHLIGHTS API ---
+
+// Get all highlights for a file
+app.get('/api/files/:fileId/highlights', async (req, res) => {
+    if (!client) return res.status(503).json({ error: 'Database not configured' });
+
+    try {
+        const result = await client.execute({
+            sql: "SELECT * FROM highlights WHERE file_id = ? ORDER BY start_pos ASC",
+            args: [req.params.fileId]
+        });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Create a new highlight
+app.post('/api/files/:fileId/highlights', requireAuth, async (req, res) => {
+    if (!client) return res.status(503).json({ error: 'Database not configured' });
+
+    const { start_pos, end_pos, text } = req.body;
+    const fileId = req.params.fileId;
+
+    if (start_pos === undefined || end_pos === undefined) {
+        return res.status(400).json({ error: "start_pos and end_pos are required" });
+    }
+
+    try {
+        const result = await client.execute({
+            sql: "INSERT INTO highlights (file_id, start_pos, end_pos, highlighted_text) VALUES (?, ?, ?, ?)",
+            args: [fileId, start_pos, end_pos, text || '']
+        });
+        res.json({ id: Number(result.lastInsertRowid), file_id: fileId, start_pos, end_pos, highlighted_text: text });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Delete a highlight
+app.delete('/api/highlights/:id', requireAuth, async (req, res) => {
+    if (!client) return res.status(503).json({ error: 'Database not configured' });
+
+    try {
+        await client.execute({
+            sql: "DELETE FROM highlights WHERE id = ?",
+            args: [req.params.id]
+        });
+        res.json({ message: "Highlight deleted" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
