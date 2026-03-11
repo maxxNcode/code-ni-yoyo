@@ -180,6 +180,108 @@
                 stroke-width: 2;
             }
         }
+
+        /* Document Editor Styles */
+        #document-editor,
+        #document-viewer {
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+        }
+
+        #document-editor {
+            border: 1px solid #e5e7eb;
+            outline: none;
+            padding: 2rem;
+        }
+
+        #document-editor:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        #document-editor p,
+        #document-viewer p {
+            margin: 0.5em 0;
+            min-height: 1.5em;
+        }
+
+        #document-editor strong,
+        #document-viewer strong {
+            font-weight: 700;
+        }
+
+        #document-editor em,
+        #document-viewer em {
+            font-style: italic;
+        }
+
+        #document-editor u,
+        #document-viewer u {
+            text-decoration: underline;
+        }
+
+        #document-editor ul,
+        #document-viewer ul {
+            padding-left: 2em;
+            margin: 0.5em 0;
+            list-style-type: disc;
+        }
+
+        #document-editor ol,
+        #document-viewer ol {
+            padding-left: 2em;
+            margin: 0.5em 0;
+            list-style-type: decimal;
+        }
+
+        #document-editor li,
+        #document-viewer li {
+            margin: 0.25em 0;
+        }
+
+        #document-viewer {
+            background-color: white;
+            color: #1f2937;
+            padding: 2rem;
+        }
+
+        /* Resizable Sidebar Styles */
+        :root {
+            --sidebar-width: 280px;
+        }
+
+        #files-column {
+            width: var(--sidebar-width);
+            min-width: 200px;
+            max-width: 600px;
+        }
+
+        #sidebar-resize-handle {
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+            border-right: 1px solid rgba(71, 85, 105, 0.3);
+            position: relative;
+            transition: background-color 0.2s;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #sidebar-resize-handle:hover,
+        #sidebar-resize-handle.resizing {
+            background-color: rgba(16, 185, 129, 0.2);
+            border-right-color: rgba(16, 185, 129, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            #sidebar-resize-handle {
+                display: none;
+            }
+        }
     </style>
 </head>
 
@@ -282,7 +384,8 @@
 
             <!-- Files Column -->
             <div id="files-column"
-                class="absolute md:relative z-[60] md:z-10 w-0 opacity-0 overflow-hidden shrink-0 bg-slate-900/98 md:bg-slate-900/95 border-none md:border-r border-slate-800/60 flex flex-col transition-all duration-300 h-full shadow-2xl md:shadow-none">
+                class="relative md:relative z-[60] md:z-10 opacity-0 md:opacity-100 overflow-hidden shrink-0 bg-slate-900/98 md:bg-slate-900/95 border-none md:border-r border-slate-800/60 flex flex-col transition-all duration-300 h-full shadow-2xl md:shadow-none"
+                style="width: var(--sidebar-width);">
                 <div
                     class="h-14 p-4 border-b border-slate-800/60 flex justify-between items-center bg-slate-800/20 shrink-0">
                     <h2 class="text-sm font-bold text-slate-200 truncate flex items-center gap-2"
@@ -348,6 +451,9 @@
                 <div class="flex-1 overflow-y-auto p-2 space-y-1 scroll-smooth" id="files-list">
                 </div>
             </div>
+
+            <!-- Sidebar Resize Handle -->
+            <div id="sidebar-resize-handle" class="hidden md:block"></div>
 
             <!-- Content Area (Toolbar + Editor/Empty State) -->
             <div class="flex-1 flex flex-col min-w-0 relative h-full">
@@ -468,48 +574,65 @@
                     <!-- Document Mode (For PDF/DOCX) -->
                     <div id="document-mode" class="flex-1 relative hidden w-full flex flex-col min-w-0">
                         <!-- Document Toolbar -->
-                        <div class="flex items-center gap-1 p-3 bg-slate-900/50 border-b border-slate-800 flex-wrap">
+                        <div class="flex items-center gap-2 p-3 bg-slate-900/80 border-b border-slate-800 flex-wrap">
                             <button id="btn-doc-bold" onclick="formatDocument('bold')" title="Bold (Ctrl+B)"
-                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                class="btn-hover p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h8a4 4 0 014 4v8a4 4 0 01-4 4H6V4zm0 10h8"></path>
                                 </svg>
                             </button>
                             <button id="btn-doc-italic" onclick="formatDocument('italic')" title="Italic (Ctrl+I)"
-                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                class="btn-hover p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 5h4m-2 0v14m4-4h4"></path>
                                 </svg>
                             </button>
                             <button id="btn-doc-underline" onclick="formatDocument('underline')" title="Underline (Ctrl+U)"
-                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                class="btn-hover p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 5v10a4 4 0 004 4h2a4 4 0 004-4V5m0 10H7"></path>
                                 </svg>
                             </button>
+
                             <div class="hidden sm:block w-px h-6 bg-slate-700 mx-1"></div>
+
                             <button id="btn-doc-ul" onclick="formatDocument('insertUnorderedList')" title="Bullet List"
-                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                class="btn-hover p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
                                 </svg>
                             </button>
                             <button id="btn-doc-ol" onclick="formatDocument('insertOrderedList')" title="Numbered List"
-                                class="btn-hover p-1.5 md:p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden admin-only">
+                                class="btn-hover p-2 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-9.414 9.414a1 1 0 00-.293.707m0 0V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-7.414"></path>
                                 </svg>
                             </button>
+
+                            <div class="hidden sm:block w-px h-6 bg-slate-700 mx-1"></div>
+
+                            <select id="doc-font-size" onchange="formatDocumentFontSize()"
+                                class="btn-hover px-2 py-1.5 text-xs bg-slate-800/50 hover:bg-slate-700 rounded text-slate-300 hidden border border-slate-700">
+                                <option value="">Font Size</option>
+                                <option value="1">Small (12px)</option>
+                                <option value="3">Normal (16px)</option>
+                                <option value="5">Large (24px)</option>
+                                <option value="6">XL (32px)</option>
+                            </select>
                         </div>
 
-                        <!-- Document Content (Contenteditable) -->
-                        <div id="document-editor"
-                            class="flex-1 overflow-auto bg-white text-slate-900 p-8 focus:outline-none text-[14px] leading-relaxed hidden admin-only"
-                            contenteditable="false"
-                            spellcheck="true">
-                        </div>
-                        <div id="document-viewer"
-                            class="flex-1 overflow-auto bg-white text-slate-900 p-8 text-[14px] leading-relaxed">
+                        <!-- Document Content Container -->
+                        <div class="flex-1 overflow-auto relative">
+                            <!-- Document Editor (Contenteditable) -->
+                            <div id="document-editor"
+                                class="absolute inset-0 overflow-auto bg-white text-slate-900 hidden"
+                                contenteditable="true"
+                                spellcheck="true">
+                            </div>
+                            <!-- Document Viewer -->
+                            <div id="document-viewer"
+                                class="absolute inset-0 overflow-auto bg-white text-slate-900">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -587,6 +710,11 @@
         let isSidebarVisible = true;
         let folderState = {}; // Tracks open/closed status by path: {'src': true, 'src/components': false}
 
+        // Sidebar Resize State
+        let isResizing = false;
+        let sidebarStartX = 0;
+        let sidebarStartWidth = 0;
+
         // Elements
         const elMobileOverlay = document.getElementById('mobile-overlay');
         const elBtnToggleFiles = document.getElementById('btn-toggle-files');
@@ -637,6 +765,65 @@
                     this.selectionStart = this.selectionEnd = start + 4;
                 }
             });
+
+            // Initialize sidebar resize handler
+            initializeSidebarResize();
+        }
+
+        // Sidebar Resize Handler
+        function initializeSidebarResize() {
+            const resizeHandle = document.getElementById('sidebar-resize-handle');
+            const filesColumn = document.getElementById('files-column');
+
+            if (!resizeHandle || !filesColumn) return;
+
+            // Load saved width from localStorage
+            const savedWidth = localStorage.getItem('sidebar-width');
+            if (savedWidth) {
+                document.documentElement.style.setProperty('--sidebar-width', savedWidth + 'px');
+            }
+
+            resizeHandle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                isResizing = true;
+                sidebarStartX = e.clientX;
+                sidebarStartWidth = filesColumn.offsetWidth;
+
+                resizeHandle.classList.add('resizing');
+                document.body.style.userSelect = 'none';
+                document.body.style.cursor = 'col-resize';
+
+                const onMouseMove = (moveEvent) => {
+                    if (!isResizing) return;
+
+                    const delta = moveEvent.clientX - sidebarStartX;
+                    let newWidth = sidebarStartWidth + delta;
+
+                    // Enforce min/max constraints
+                    newWidth = Math.max(200, Math.min(600, newWidth));
+
+                    document.documentElement.style.setProperty('--sidebar-width', newWidth + 'px');
+                };
+
+                const onMouseUp = () => {
+                    if (!isResizing) return;
+                    isResizing = false;
+
+                    // Save width to localStorage
+                    const finalWidth = filesColumn.offsetWidth;
+                    localStorage.setItem('sidebar-width', finalWidth);
+
+                    resizeHandle.classList.remove('resizing');
+                    document.body.style.userSelect = '';
+                    document.body.style.cursor = '';
+
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
         }
 
         // --- Layout Logic ---
@@ -648,8 +835,7 @@
             if (isFilesVisible) {
                 document.body.classList.add('sidebar-open');
                 if (window.innerWidth >= 768) {
-                    elFilesColumn.classList.remove('w-0', 'opacity-0');
-                    elFilesColumn.classList.add('w-64', 'opacity-100');
+                    elFilesColumn.style.display = 'flex';
                 } else {
                     elMobileOverlay.classList.remove('hidden');
                     setTimeout(() => elMobileOverlay.classList.remove('opacity-0'), 10);
@@ -658,8 +844,7 @@
             } else {
                 document.body.classList.remove('sidebar-open');
                 if (window.innerWidth >= 768) {
-                    elFilesColumn.classList.add('w-0', 'opacity-0');
-                    elFilesColumn.classList.remove('w-64', 'opacity-100');
+                    elFilesColumn.style.display = 'none';
                 }
                 elBtnToggleFiles.classList.remove('text-emerald-400', 'bg-slate-800/50');
                 elMobileOverlay.classList.add('opacity-0');
@@ -678,11 +863,9 @@
 
         window.addEventListener('resize', () => {
             if (window.innerWidth >= 768 && isFilesVisible) {
-                elFilesColumn.classList.add('w-64', 'opacity-100');
-                elFilesColumn.classList.remove('w-0', 'opacity-0');
+                elFilesColumn.style.display = 'flex';
             } else if (window.innerWidth >= 768 && !isFilesVisible) {
-                elFilesColumn.classList.add('w-0', 'opacity-0');
-                elFilesColumn.classList.remove('w-64', 'opacity-100');
+                elFilesColumn.style.display = 'none';
             }
         });
 
@@ -1406,6 +1589,15 @@
             }
         }
 
+        function formatDocumentFontSize() {
+            const select = document.getElementById('doc-font-size');
+            const value = select.value;
+            if (value) {
+                document.execCommand('fontSize', false, value);
+                select.value = '';
+            }
+        }
+
         function formatDocument(command, value = null) {
             // Only allow formatting in edit mode
             if (!isAdmin || isEditing === false) return;
@@ -1416,6 +1608,8 @@
                 } else {
                     document.execCommand(command, false, null);
                 }
+                // Refocus editor after formatting
+                document.getElementById('document-editor').focus();
             } catch (err) {
                 console.error('Format error:', err);
             }
@@ -1424,7 +1618,7 @@
         function toggleDocumentEditMode() {
             const docEditor = document.getElementById('document-editor');
             const docViewer = document.getElementById('document-viewer');
-            const formatBtns = document.querySelectorAll('#btn-doc-bold, #btn-doc-italic, #btn-doc-underline, #btn-doc-ul, #btn-doc-ol');
+            const formatBtns = document.querySelectorAll('#btn-doc-bold, #btn-doc-italic, #btn-doc-underline, #btn-doc-ul, #btn-doc-ol, #doc-font-size');
 
             if (isEditing) {
                 // Switch to edit mode

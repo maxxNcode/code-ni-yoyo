@@ -79,11 +79,9 @@ async function extractPdfText(buffer) {
     }
 }
 
-// DOCX to Text Parser (Simple XML parsing)
+// DOCX to HTML Parser (Better formatting preservation)
 async function extractDocxText(buffer) {
     try {
-        // For DOCX files, we need to unzip and extract text from document.xml
-        const JSZip = require('jszip');
         const zip = new JSZip();
         await zip.loadAsync(buffer);
 
@@ -92,13 +90,47 @@ async function extractDocxText(buffer) {
             throw new Error('Invalid DOCX file structure');
         }
 
-        // Simple regex extraction of text content from Word XML
-        const textMatches = docXml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
-        const text = textMatches
-            .map(match => match.replace(/<[^>]*>/g, ''))
-            .join('');
+        // Convert DOCX XML to HTML with better formatting preservation
+        let html = docXml;
 
-        return text;
+        // Add proper paragraph breaks
+        html = html.replace(/<w:p>/g, '<p>');
+        html = html.replace(/<\/w:p>/g, '</p>');
+
+        // Handle bold text
+        html = html.replace(/<w:b[^>]*\/>/g, '').replace(/<w:rPr>[\s\S]*?<w:b[^>]*\/>/g, '');
+        html = html.replace(/<w:r>/g, '').replace(/<\/w:r>/g, '');
+
+        // Extract text runs with formatting
+        const paragraphs = docXml.match(/<w:p>[\s\S]*?<\/w:p>/g) || [];
+        let result = '<div style="line-height: 1.6; white-space: pre-wrap;">';
+
+        paragraphs.forEach(para => {
+            let paraContent = '';
+
+            // Extract text runs from paragraph
+            const textRuns = para.match(/<w:r>[\s\S]*?<\/w:r>/g) || [];
+
+            textRuns.forEach(run => {
+                // Check if bold
+                const isBold = /<w:b/.test(run);
+                // Check if italic
+                const isItalic = /<w:i/.test(run);
+
+                const textMatch = run.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
+                if (textMatch && textMatch[1]) {
+                    let text = textMatch[1];
+                    if (isBold) text = `<strong>${text}</strong>`;
+                    if (isItalic) text = `<em>${text}</em>`;
+                    paraContent += text;
+                }
+            });
+
+            result += `<p>${paraContent || '&nbsp;'}</p>`;
+        });
+
+        result += '</div>';
+        return result;
     } catch (err) {
         throw new Error('Failed to parse DOCX: ' + err.message);
     }
