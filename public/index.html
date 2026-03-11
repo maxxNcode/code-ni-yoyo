@@ -399,9 +399,9 @@
                 <!-- Editor Area (Hidden by default) -->
                 <div class="flex-1 bg-[#1e1e24] flex flex-col hidden relative" id="editor-area">
                     <!-- Viewing Area -->
-                    <div id="view-mode" class="flex-1 overflow-auto relative bg-[#1e1e24] w-full min-w-0">
+                    <div id="view-mode" class="absolute inset-0 overflow-auto bg-[#1e1e24]">
                         <pre
-                            class="m-0 h-full w-full overflow-auto"><code id="code-viewer" class="h-full block p-6 text-[13px] leading-relaxed font-mono selection:bg-emerald-500/30"></code></pre>
+                            class="m-0 min-h-full min-w-full"><code id="code-viewer" class="block p-6 text-[13px] leading-relaxed font-mono selection:bg-emerald-500/30"></code></pre>
                     </div>
 
                     <!-- Editing Area -->
