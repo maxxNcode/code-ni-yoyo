@@ -1,6 +1,8 @@
 // State
         let currentProjectId = null;
         let currentFileId = null;
+        let currentFileType = 'code';
+        let currentProjectFiles = []; // For global search
         let isEditing = false;
         let isAdmin = localStorage.getItem('adminToken') !== null;
         let isSidebarVisible = true;
@@ -35,17 +37,72 @@
 
         // File Icons Helper
         function getFileIcon(filename) {
-            const ext = filename.split('.').pop().toLowerCase();
+            const extMatch = filename.split('.').pop().toLowerCase();
+            const ext = filename.includes('.') ? extMatch : 'txt';
+            
+            // Default generic file
+            let color = 'text-slate-400';
+            let iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>';
+
+            // Language/Type mapping
             switch (ext) {
-                case 'js': case 'jsx': case 'ts': return '<svg class="w-4 h-4 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>';
-                case 'html': return '<svg class="w-4 h-4 text-orange-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 22h20L12 2zm0 3.8L18.4 19H5.6L12 5.8z"/></svg>';
-                case 'css': return '<svg class="w-4 h-4 text-blue-400" viewBox="0 0 24 24" fill="currentColor"><path d="M2.5 4h19l-1.6 15L12 21.5 4.1 19 2.5 4zm3.3 3.5l.5 6h7.7l-.3 3.2-2.7.7-2.7-.7-.2-2h-2.5l.4 4 4.8 1.5 5-1.5.8-8.7H5.8z"/></svg>';
-                case 'json': return '<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 7v10c0 2 1.5 3 3 3h10c2.5 0 3-1.5 3-3V7c0-2.5-.5-3-3-3H7c-1.5 0-3 1-3 3z"/></svg>';
-                case 'md': return '<svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>';
-                case 'pdf': return '<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
-                case 'docx': return '<svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
-                default: return '<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>';
+                // Javascript / Typescript
+                case 'js': case 'jsx': 
+                    color = 'text-yellow-400';
+                    iconSvg = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>'; 
+                    break;
+                case 'ts': case 'tsx': 
+                    color = 'text-blue-400';
+                    iconSvg = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>'; 
+                    break;
+                // Web HTML / CSS
+                case 'html': case 'htm': 
+                    color = 'text-orange-500';
+                    iconSvg = '<path d="M12 2L2 22h20L12 2zm0 3.8L18.4 19H5.6L12 5.8z"/>'; 
+                    break;
+                case 'css': case 'scss': case 'less':
+                    color = 'text-blue-400';
+                    iconSvg = '<path d="M2.5 4h19l-1.6 15L12 21.5 4.1 19 2.5 4zm3.3 3.5l.5 6h7.7l-.3 3.2-2.7.7-2.7-.7-.2-2h-2.5l.4 4 4.8 1.5 5-1.5.8-8.7H5.8z"/>'; 
+                    break;
+                // Data / Config
+                case 'json': 
+                    color = 'text-emerald-400';
+                    iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3 3h10c2.5 0 3-1.5 3-3V7c0-2.5-.5-3-3-3H7c-1.5 0-3 1-3 3z"/>'; 
+                    break;
+                case 'xml': case 'yaml': case 'yml': case 'env':
+                    color = 'text-slate-300';
+                    iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3 3h10c2.5 0 3-1.5 3-3V7c0-2.5-.5-3-3-3H7c-1.5 0-3 1-3 3z"/>'; 
+                    break;
+                // Documents
+                case 'md': 
+                    color = 'text-sky-400';
+                    iconSvg = '<path d="M2.25 15.75l5.104-4.303 1.528 1.954 5.09-5.185 3.778 5.759V4.5a.75.75 0 00-.75-.75H3a.75.75 0 00-.75.75v11.25z" />'; 
+                    break;
+                case 'pdf': 
+                    color = 'text-red-500';
+                    iconSvg = '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>'; 
+                    break;
+                case 'docx': case 'doc': 
+                    color = 'text-blue-500';
+                    iconSvg = '<path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>'; 
+                    break;
+                // Code general
+                case 'py': 
+                    color = 'text-blue-400';
+                    iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>'; 
+                    break;
+                case 'cpp': case 'c': case 'h': case 'java': case 'go': case 'rb': case 'php':
+                    color = 'text-purple-400';
+                    iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>'; 
+                    break;
+                // Images
+                case 'png': case 'jpg': case 'jpeg': case 'gif': case 'svg': case 'ico':
+                    color = 'text-emerald-300';
+                    iconSvg = '<path fill-rule="evenodd" d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z" clip-rule="evenodd" />'; 
+                    break;
             }
+
+            return `<svg class="w-4 h-4 ${color}" fill="currentColor" viewBox="0 0 24 24">${iconSvg}</svg>`;
         }
 
         // Initialize
@@ -200,11 +257,45 @@
 
                 // Hide specific flex forms safely
                 document.getElementById('btn-dashboard-new-project').classList.add('hidden');
-                document.getElementById('container-new-file').classList.add('hidden');
 
                 elBtnShowLogin.classList.remove('hidden');
                 elBtnLogout.classList.add('hidden');
                 if (isEditing) toggleEditMode();
+            }
+        }
+
+        // Toggle Sidebar Views from Activity Bar
+        function toggleSidebarView(view) {
+            const searchColumn = document.getElementById('search-column');
+            const abExplorer = document.getElementById('ab-explorer');
+            const abSearch = document.getElementById('ab-search');
+            
+            if (view === 'explorer') {
+                if (abExplorer.classList.contains('active') && isFilesVisible) {
+                    toggleFiles(); // Hide entirely
+                } else {
+                    if (!isFilesVisible) toggleFiles();
+                    elFilesColumn.classList.remove('hidden');
+                    elFilesColumn.classList.add('flex');
+                    if (searchColumn) searchColumn.classList.add('hidden');
+                    abExplorer.classList.add('active');
+                    if (abSearch) abSearch.classList.remove('active');
+                }
+            } else if (view === 'search') {
+                if (abSearch.classList.contains('active') && isFilesVisible) {
+                    toggleFiles(); // Hide entirely
+                } else {
+                    if (!isFilesVisible) toggleFiles();
+                    elFilesColumn.classList.add('hidden');
+                    elFilesColumn.classList.remove('flex');
+                    if (searchColumn) {
+                        searchColumn.classList.remove('hidden');
+                        searchColumn.classList.add('flex');
+                        document.getElementById('input-global-search')?.focus();
+                    }
+                    if (abSearch) abSearch.classList.add('active');
+                    abExplorer.classList.remove('active');
+                }
             }
         }
 
@@ -396,18 +487,37 @@
             currentProjectId = id;
             currentFileId = null;
             fileCache = {}; // Clear file cache when switching projects
-            elCurrentProjectTitle.innerHTML = `<svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg> ${escapeHTML(name)}`;
+            elCurrentProjectTitle.innerText = name;
             elBtnToggleFiles.classList.remove('hidden');
 
             // Start files open automatically
             if (!isFilesVisible) toggleFiles();
 
-            const containerNewFolder = document.getElementById('btn-new-folder').parentElement;
             if (isAdmin) {
-                btnDeleteProj.parentElement.classList.remove('hidden');
+                // Show actions in sidebar header
+                document.querySelectorAll('.project-actions').forEach(el => el.classList.remove('hidden'));
             } else {
-                btnDeleteProj.parentElement.classList.add('hidden');
+                document.querySelectorAll('.project-actions').forEach(el => el.classList.add('hidden'));
             }
+
+            // Accordion toggle logic
+            const accordionHead = document.getElementById('project-accordion-toggle');
+            accordionHead.onclick = (e) => {
+                // Do not collapse if clicking on actions
+                if (e.target.closest('.project-action-btn')) return;
+                
+                const chevron = accordionHead.querySelector('.chevron-icon');
+                const list = document.getElementById('files-list');
+                const isClosed = chevron.classList.contains('open');
+                
+                if (isClosed) {
+                    chevron.classList.remove('open');
+                    list.style.display = 'none';
+                } else {
+                    chevron.classList.add('open');
+                    list.style.display = 'block';
+                }
+            };
 
             await loadProjects();
             await loadFiles();
@@ -438,6 +548,66 @@
             attemptDelete();
         }
 
+        // --- Global Search ---
+        document.getElementById('input-global-search')?.addEventListener('input', (e) => {
+            performGlobalSearch(e.target.value);
+        });
+
+        function performGlobalSearch(query) {
+            const resultsContainer = document.getElementById('search-results-list');
+            if (!resultsContainer) return;
+
+            if (!query.trim() || !currentProjectFiles.length) {
+                resultsContainer.innerHTML = '<div class="text-[13px] text-slate-500 text-center mt-6 p-4">Type to search across all files in your project.</div>';
+                return;
+            }
+
+            const term = query.toLowerCase();
+            const results = currentProjectFiles.filter(f => 
+                f.filename.toLowerCase().includes(term) || 
+                (f.content && f.content.toLowerCase().includes(term))
+            );
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<div class="text-[13px] text-slate-500 text-center mt-6 p-4">No results found.</div>';
+                return;
+            }
+
+            resultsContainer.innerHTML = '';
+            results.forEach(f => {
+                const item = document.createElement('div');
+                item.className = 'px-3 py-1.5 cursor-pointer hover:bg-[#2a2d2e] border border-transparent hover:border-[#3c3c3c] group transition-colors';
+                
+                const fileNameOnly = f.filename.split('/').pop();
+                const folderPath = f.filename.includes('/') ? f.filename.substring(0, f.filename.lastIndexOf('/')) : '';
+
+                // Optional snippet extraction
+                let snippetHtml = '';
+                if (f.content && f.content.toLowerCase().includes(term) && f.file_type === 'code') {
+                    const idx = f.content.toLowerCase().indexOf(term);
+                    const start = Math.max(0, idx - 15);
+                    const matchText = f.content.substring(idx, idx + term.length);
+                    const snippet = (start > 0 ? '...' : '') + escapeHTML(f.content.substring(start, idx)) + `<span class="bg-emerald-500/30 text-emerald-300 px-0.5 rounded-sm">${escapeHTML(matchText)}</span>` + escapeHTML(f.content.substring(idx + term.length, Math.min(idx + term.length + 30, f.content.length))) + (idx + term.length + 30 < f.content.length ? '...' : '');
+                    snippetHtml = `<div class="text-[11px] text-slate-400 font-mono truncate mt-0.5 ml-[22px] overflow-hidden">${snippet}</div>`;
+                }
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-1.5 text-[13px]">
+                        ${getFileIcon(fileNameOnly)}
+                        <span class="text-[#cccccc] group-hover:text-white truncate">${escapeHTML(fileNameOnly)}</span>
+                        ${folderPath ? `<span class="text-[11px] text-slate-500 truncate ml-1 flex-1 text-right">${escapeHTML(folderPath)}</span>` : ''}
+                    </div>
+                    ${snippetHtml}
+                `;
+                
+                item.onclick = () => {
+                    selectFile(f.id, f.filename);
+                    if (window.innerWidth < 768) toggleFiles();
+                };
+                resultsContainer.appendChild(item);
+            });
+        }
+
         // --- File Logic ---
         async function loadFiles() {
             if (!currentProjectId) return;
@@ -445,6 +615,9 @@
                 api(`/projects/${currentProjectId}/files`),
                 api(`/projects/${currentProjectId}/folders`)
             ]);
+            
+            currentProjectFiles = files; // Cache globally for accurate file search without fetching
+            
             elFilesList.innerHTML = '';
 
             if (files.length === 0 && folders.length === 0) {
@@ -519,7 +692,7 @@
             });
 
             function renderTree(node, depth = 0, isParentOpen = true) {
-                const paddingLeft = depth * 14;
+                const paddingLeft = depth * 12;
 
                 // Render directories
                 Object.keys(node.dirs).sort().forEach(dirName => {
@@ -528,34 +701,31 @@
 
                     const dirDiv = document.createElement('div');
                     // Hide if parent is closed
-                    dirDiv.className = `w-full text-left px-3 py-1.5 rounded-lg text-[13px] font-semibold flex items-center justify-between group transition-colors ${!isParentOpen ? 'hidden' : 'text-slate-400 hover:bg-slate-800/40 cursor-pointer border border-transparent hover:border-slate-700/30'}`;
-                    dirDiv.style.paddingLeft = `${paddingLeft + 12}px`;
+                    dirDiv.className = `file-tree-folder group ${!isParentOpen ? 'hidden' : ''}`;
+                    dirDiv.style.paddingLeft = `${paddingLeft + 10}px`;
 
-                    // Folder Icon + Chevron
-                    const chevron = isOpen
-                        ? `<svg class="w-3.5 h-3.5 mr-1 text-slate-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`
-                        : `<svg class="w-3.5 h-3.5 mr-1 text-slate-500 transition-transform -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+                    const chevronClass = isOpen ? 'open' : '';
 
-                    // Contextual New File and Delete Folder buttons (admins only)
+                    // Contextual buttons (admins only)
                     const actionBtns = isAdmin ? `
-                        <div class="flex items-center gap-1">
-                            <button class="opacity-0 group-hover:opacity-100 hover:text-emerald-400 p-1 rounded-md transition-all z-10" onclick="event.stopPropagation(); promptNewFile('${childNode.path}')" title="New file here">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <div class="project-actions ml-auto">
+                            <button class="project-action-btn" onclick="event.stopPropagation(); promptNewFile(event, '${childNode.path}')" title="New file here">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4"></path></svg>
                             </button>
                             ${childNode.isEmptyFolder ? `
-                            <button class="opacity-0 group-hover:opacity-100 hover:text-red-400 p-1 rounded-md transition-all z-10" onclick="event.stopPropagation(); deleteFolder(${childNode.folderId})" title="Delete folder">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            <button class="project-action-btn hover:text-red-400" onclick="event.stopPropagation(); deleteFolder(${childNode.folderId})" title="Delete folder">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                             </button>
                             ` : ''}
                         </div>
                     ` : '';
 
                     dirDiv.innerHTML = `
-                        <div class="flex items-center truncate">
-                            ${chevron}
-                            <svg class="w-4 h-4 text-emerald-500/70 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
-                            <span class="truncate transition-colors group-hover:text-slate-200">${escapeHTML(dirName)}</span>
+                        <div class="chevron-icon ${chevronClass}">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5.5 4.5l5 3.5-5 3.5v-7z"/></svg>
                         </div>
+                        <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 16 16" style="color:#dcb67a;"><path d="M14 4h-4l-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></svg>
+                        <span class="truncate">${escapeHTML(dirName)}</span>
                         ${actionBtns}
                     `;
 
@@ -572,17 +742,20 @@
 
                 // Render files
                 node.files.sort((a, b) => a.filename.localeCompare(b.filename)).forEach(f => {
-                    const btn = document.createElement('button');
+                    const btn = document.createElement('div');
                     const isActive = currentFileId === f.id;
                     const fileNameOnly = f.filename.split('/').pop();
 
-                    btn.className = `w-full text-left px-3 py-2 rounded-lg text-[13px] mb-[1px] font-mono transition-all flex items-center gap-2.5 border border-transparent ${!isParentOpen ? 'hidden' : isActive
-                        ? 'bg-slate-800/80 text-emerald-300 border-slate-700/50 shadow-sm'
-                        : 'text-slate-300 hover:bg-slate-800/40 hover:text-slate-200'
-                        }`;
-                    btn.style.paddingLeft = `${paddingLeft + 24}px`;
+                    btn.className = `file-tree-item group ${!isParentOpen ? 'hidden' : ''} ${isActive ? 'active' : ''}`;
+                    btn.style.paddingLeft = `${paddingLeft + 26}px`;
 
-                    btn.innerHTML = `${getFileIcon(fileNameOnly)} <span class="truncate">${escapeHTML(fileNameOnly)}</span>`;
+                    const renameBtn = isAdmin ? `
+                        <button class="opacity-0 group-hover:opacity-100 ml-auto hover:text-blue-400 p-0.5 rounded-sm transition-opacity" onclick="event.stopPropagation(); window.promptRenameFile(event, '${f.id}', '${f.filename}')" title="Rename file">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        </button>
+                    ` : '';
+
+                    btn.innerHTML = `${getFileIcon(fileNameOnly)} <span class="truncate ml-1.5 flex-1 file-name-span">${escapeHTML(fileNameOnly)}</span> ${renameBtn}`;
                     btn.onclick = () => selectFile(f.id, f.filename);
                     elFilesList.appendChild(btn);
                 });
@@ -591,21 +764,153 @@
             renderTree(tree);
         }
 
-        document.getElementById('form-new-file').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // Add to global scope for the inline buttons in HTML
+        window.insertInlineInput = function(type, targetPath = '') {
             if (!currentProjectId) return;
-            const input = document.getElementById('input-file-name');
-            try {
-                const newFile = await api(`/projects/${currentProjectId}/files`, 'POST', {
-                    filename: input.value,
-                    content: '// Empty file...'
-                });
-                input.value = '';
-                await loadFiles();
-                selectFile(newFile.id, newFile.filename);
-                showToast("File created");
-            } catch (e) { }
-        });
+            
+            // Remove any existing inline inputs
+            const existing = document.getElementById('inline-creation-container');
+            if (existing) existing.remove();
+
+            const item = document.createElement('div');
+            item.id = 'inline-creation-container';
+            const depth = targetPath ? targetPath.split('/').length : 0;
+            const paddingLeft = depth * 12 + 26; // Match file-tree-item padding
+            
+            item.className = 'file-tree-item py-1 bg-white/5';
+            item.style.paddingLeft = `${paddingLeft}px`;
+            
+            const icon = type === 'file' ? getFileIcon('txt') : `<svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 16 16" style="color:#dcb67a;"><path d="M14 4h-4l-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1z"/></svg>`;
+
+            item.innerHTML = `
+                ${icon}
+                <form id="inline-file-form" class="w-full ml-1.5 flex bg-[#1e1e1e] border border-[var(--vscode-active-border)] rounded-sm">
+                    <input type="text" id="inline-file-input" placeholder="${type === 'file' ? 'filename.js' : 'folder'}" class="w-full bg-transparent text-[13px] text-white px-1 py-0.5 outline-none font-mono" />
+                </form>
+            `;
+
+            // Find where to insert visually (for now, simply at the top of the files list)
+            const filesList = document.getElementById('files-list');
+            if (!filesList) return;
+            filesList.insertBefore(item, filesList.firstChild);
+
+            const input = document.getElementById('inline-file-input');
+            input.focus();
+
+            const submitHandler = async (e) => {
+                e.preventDefault();
+                const val = input.value.trim();
+                if (!val) { item.remove(); return; }
+                const fullPath = targetPath ? targetPath + '/' + val : val;
+
+                try {
+                    input.disabled = true;
+                    if (type === 'file') {
+                        const newFile = await api(`/projects/${currentProjectId}/files`, 'POST', {
+                            filename: fullPath,
+                            content: '// Empty file...'
+                        });
+                        await loadFiles();
+                        selectFile(newFile.id, newFile.filename);
+                        showToast("File created");
+                    } else {
+                        await api(`/projects/${currentProjectId}/folders`, 'POST', {
+                            path: fullPath
+                        });
+                        await loadFiles();
+                        showToast("Folder created", "success");
+                    }
+                } catch (err) {
+                    showToast("Creation failed", "error");
+                    item.remove();
+                }
+            };
+
+            document.getElementById('inline-file-form').addEventListener('submit', submitHandler);
+            
+            // Remove on blur if empty or unused
+            input.addEventListener('blur', () => {
+                setTimeout(() => { if (document.activeElement !== input) document.getElementById('inline-creation-container')?.remove(); }, 150);
+            });
+        };
+
+        window.promptRenameFile = function(e, fileId, oldFullPath) {
+            if (e) e.stopPropagation();
+            
+            const btn = e.target.closest('.file-tree-item');
+            if (!btn) return;
+            
+            const oldNameOnly = oldFullPath.split('/').pop();
+            const originalHTML = btn.innerHTML; // Cache inner HTML fully
+            
+            // Re-render HTML with input
+            btn.innerHTML = `
+                ${getFileIcon(oldNameOnly)}
+                <form id="inline-rename-form" class="w-full ml-1.5 flex bg-[#1e1e1e] border border-[var(--vscode-active-border)] rounded-sm">
+                    <input type="text" id="inline-rename-input" class="w-full bg-transparent text-[13px] text-white px-1 py-0.5 outline-none font-mono" />
+                </form>
+            `;
+            
+            const input = document.getElementById('inline-rename-input');
+            input.value = oldNameOnly;
+            input.focus();
+            
+            const extIndex = oldNameOnly.lastIndexOf('.');
+            if (extIndex > 0) input.setSelectionRange(0, extIndex);
+            else input.select();
+            
+            const submitHandler = async (ev) => {
+                ev.preventDefault();
+                const newNameOnly = input.value.trim();
+                
+                if (!newNameOnly || newNameOnly === oldNameOnly) {
+                    btn.innerHTML = originalHTML;
+                    // re-bind original click if lost (handled by selectFile on parent anyway)
+                    return;
+                }
+                
+                const pathParts = oldFullPath.split('/');
+                pathParts.pop();
+                const newFullPath = pathParts.length > 0 ? pathParts.join('/') + '/' + newNameOnly : newNameOnly;
+                
+                try {
+                    input.disabled = true;
+                    // API PUT accepts filename
+                    await api(`/files/${fileId}`, 'PUT', { filename: newFullPath });
+                    
+                    // Update cache to reflect rename seamlessly without full reload visually if possible, but loadFiles acts fast.
+                    await loadFiles();
+                    showToast("File renamed");
+                    if (currentFileId === fileId) {
+                        elCurrentFileName.innerText = newFullPath;
+                    }
+                } catch (err) {
+                    showToast("Rename failed", "error");
+                    btn.innerHTML = originalHTML;
+                }
+            };
+            
+            document.getElementById('inline-rename-form').addEventListener('submit', submitHandler);
+            
+            input.addEventListener('blur', () => {
+                setTimeout(() => { if (document.activeElement !== input) btn.innerHTML = originalHTML; }, 150);
+            });
+        };
+
+        window.promptNewFile = function(e, path = '') {
+            if (e) e.stopPropagation();
+            insertInlineInput('file', path);
+        };
+
+        window.promptNewFolder = function(e, path = '') {
+            if (e) e.stopPropagation();
+            insertInlineInput('folder', path);
+        };
+
+        window.refreshFileTree = function(e) {
+            if (e) e.stopPropagation();
+            loadFiles();
+        };
 
         async function selectFile(id, filename) {
             currentFileId = id;
@@ -712,18 +1017,15 @@
         }
 
         function highlightSidebarFile(activeId) {
-            const buttons = elFilesList.querySelectorAll('button');
+            const buttons = elFilesList.querySelectorAll('.file-tree-item');
             buttons.forEach(btn => {
-                // reset styling
-                btn.classList.remove('bg-slate-800/80', 'text-emerald-300', 'border-slate-700/50', 'shadow-sm');
-                btn.classList.add('text-slate-300', 'hover:bg-slate-800/40', 'hover:text-slate-200');
+                btn.classList.remove('active');
             });
 
             // Re-apply active state logic when the user clicks a file button again
-            const activeBtn = Array.from(buttons).find(b => b.onclick && b.onclick.toString().includes(`selectFile(${activeId}`));
+            const activeBtn = Array.from(buttons).find(b => b.onclick && b.onclick.toString().includes(`selectFile('${activeId}'`) || (b.onclick && b.onclick.toString().includes(`selectFile(${activeId}`)));
             if (activeBtn) {
-                activeBtn.classList.add('bg-slate-800/80', 'text-emerald-300', 'border-slate-700/50', 'shadow-sm');
-                activeBtn.classList.remove('text-slate-300', 'hover:bg-slate-800/40', 'hover:text-slate-200');
+                activeBtn.classList.add('active');
             }
         }
 
@@ -776,21 +1078,7 @@
             } catch (e) { }
         }
 
-        // --- Contextual File/Folder Creation ---
-        async function promptNewFolder() {
-            const folderName = prompt("Enter new folder name (e.g. 'src' or 'images'):");
-            if (!folderName || folderName.trim() === '') return;
-
-            try {
-                await api(`/projects/${currentProjectId}/folders`, 'POST', {
-                    path: folderName.trim()
-                });
-                await loadFiles();
-                showToast("Folder created", "success");
-            } catch (e) {
-                showToast("Failed to create folder", "error");
-            }
-        }
+        // Note: promptNewFolder is now implemented via the VS Code sidebar form logic
 
         async function deleteFolder(folderId) {
             if (!confirm("Are you sure you want to delete this empty folder?")) return;
@@ -882,7 +1170,6 @@
         }
 
         // --- DOCUMENT EDITOR FUNCTIONS ---
-        let currentFileType = 'code';
 
         async function uploadDocumentFile() {
             if (!currentProjectId || !isAdmin) {
@@ -894,12 +1181,6 @@
             const file = fileInput.files[0];
 
             if (!file) return;
-
-            const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-            if (!validTypes.includes(file.type)) {
-                showToast('Only PDF and DOCX files are allowed', 'error');
-                return;
-            }
 
             const formData = new FormData();
             formData.append('file', file);

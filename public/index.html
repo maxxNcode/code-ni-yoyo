@@ -279,34 +279,185 @@
             /* Resizable Sidebar Styles */
             :root {
                 --sidebar-width: 280px;
+                --activity-bar-width: 48px;
+                --vscode-bg: #1e1e1e;
+                --vscode-sidebar: #252526;
+                --vscode-activityBar: #333333;
+                --vscode-text: #cccccc;
+                --vscode-hover: #2a2d2e;
+                --vscode-active-border: #007acc;
             }
 
             #files-column {
                 width: var(--sidebar-width);
-                min-width: 200px;
-                max-width: 600px;
+                min-width: 170px;
+                max-width: 800px;
+                background-color: var(--vscode-sidebar);
             }
 
             #sidebar-resize-handle {
-                width: 5px;
+                width: 4px;
                 cursor: col-resize;
                 background: transparent;
-                border-right: 1px solid rgba(71, 85, 105, 0.3);
+                border-right: 1px solid rgba(71, 85, 105, 0.2);
                 position: relative;
-                transition: background-color 0.2s;
+                transition: background-color 0.1s;
                 user-select: none;
                 -webkit-user-select: none;
+                z-index: 50;
             }
 
             #sidebar-resize-handle:hover,
             #sidebar-resize-handle.resizing {
-                background-color: rgba(16, 185, 129, 0.2);
-                border-right-color: rgba(16, 185, 129, 0.5);
+                background-color: var(--vscode-active-border);
+            }
+
+            /* Activity Bar Styles */
+            .ab-item {
+                position: relative;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                aspect-ratio: 1;
+                color: #858585;
+                transition: color 0.1s ease;
+                cursor: pointer;
+            }
+
+            .ab-item:hover {
+                color: white;
+            }
+
+            .ab-item.active {
+                color: white;
+            }
+
+            .ab-indicator {
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 2px;
+                background-color: var(--vscode-active-border);
+                opacity: 0;
+                transition: opacity 0.1s ease;
+            }
+
+            .ab-item.active .ab-indicator {
+                opacity: 1;
+            }
+
+            /* VS Code Sidebar Styles */
+            .sidebar-title {
+                font-size: 11px;
+                color: #bbbbbb;
+                padding: 10px 20px;
+                font-weight: 400;
+                letter-spacing: 0.5px;
+            }
+
+            .project-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 4px 10px;
+                cursor: pointer;
+                font-size: 11px;
+                font-weight: 700;
+                color: #cccccc;
+                text-transform: uppercase;
+                background-color: transparent;
+                border: 1px solid transparent;
+            }
+
+            .project-header:hover {
+                background-color: var(--vscode-hover);
+            }
+
+            .project-header:focus {
+                outline: 1px solid var(--vscode-active-border);
+            }
+
+            .project-actions {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                opacity: 0;
+                transition: opacity 0.1s ease;
+            }
+
+            .project-header:hover .project-actions {
+                opacity: 1;
+            }
+
+            .project-action-btn {
+                padding: 2px;
+                border-radius: 4px;
+                color: #cccccc;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .project-action-btn:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                color: white;
+            }
+
+            .file-tree-item {
+                display: flex;
+                align-items: center;
+                padding: 3px 10px 3px 22px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #cccccc;
+                user-select: none;
+            }
+
+            .file-tree-item:hover {
+                background-color: var(--vscode-hover);
+            }
+
+            .file-tree-item.active {
+                background-color: #37373d;
+                color: white;
+            }
+
+            .file-tree-folder {
+                display: flex;
+                align-items: center;
+                padding: 3px 10px;
+                cursor: pointer;
+                font-size: 13px;
+                color: #cccccc;
+                user-select: none;
+            }
+
+            .file-tree-folder:hover {
+                background-color: var(--vscode-hover);
+            }
+
+            .chevron-icon {
+                width: 16px;
+                height: 16px;
+                margin-right: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: transform 0.1s ease;
+            }
+
+            .chevron-icon.open {
+                transform: rotate(90deg);
             }
 
             @media (max-width: 768px) {
                 #sidebar-resize-handle {
                     display: none;
+                }
+                #activity-bar {
+                    display: none !important;
                 }
             }
         </style>
@@ -493,148 +644,114 @@
                     onclick="toggleFiles()"
                 ></div>
 
-                <!-- Files Column -->
+                <!-- Activity Bar -->
+                <div id="activity-bar" class="w-[48px] bg-[#333333] hidden md:flex flex-col justify-between shrink-0 z-20">
+                    <div class="flex flex-col items-center pt-2">
+                        <!-- Explorer -->
+                        <button id="ab-explorer" onclick="toggleSidebarView('explorer')" class="ab-item active" title="Explorer">
+                            <div class="ab-indicator"></div>
+                            <svg class="w-[28px] h-[28px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                            </svg>
+                        </button>
+                        <!-- Search -->
+                        <button id="ab-search" onclick="toggleSidebarView('search')" class="ab-item" title="Search">
+                            <div class="ab-indicator"></div>
+                            <svg class="w-[24px] h-[24px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                            </svg>
+                        </button>
+                        <button class="ab-item" title="Source Control">
+                            <div class="ab-indicator"></div>
+                            <svg class="w-[24px] h-[24px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="flex flex-col items-center pb-2">
+                        <!-- Upload Form -->
+                        <button onclick="document.getElementById('file-upload-input').click()" class="ab-item admin-only hidden text-purple-400/80 hover:text-purple-300" title="Upload File">
+                            <div class="ab-indicator"></div>
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                        </button>
+                        <!-- Hidden Form -->
+                        <input type="file" id="file-upload-input" class="hidden" onchange="uploadDocumentFile()" />
+                        
+                        <button onclick="document.getElementById('btn-show-login').click()" class="ab-item" title="Accounts">
+                            <div class="ab-indicator"></div>
+                            <svg class="w-[26px] h-[26px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                        <button class="ab-item" title="Manage">
+                            <div class="ab-indicator"></div>
+                            <svg class="w-[24px] h-[24px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Primary Side Bar (Files Column) -->
                 <div
                     id="files-column"
-                    class="relative md:relative z-[60] md:z-10 opacity-0 md:opacity-100 overflow-hidden shrink-0 bg-slate-900/98 md:bg-slate-900/95 border-none md:border-r border-slate-800/60 flex flex-col transition-all duration-300 h-full shadow-2xl md:shadow-none"
-                    style="width: var(--sidebar-width)"
+                    class="relative md:relative z-[60] md:z-10 opacity-0 md:opacity-100 overflow-hidden shrink-0 border-none md:border-r border-[#333333] flex flex-col transition-all duration-300 h-full shadow-2xl md:shadow-none"
+                    style="width: var(--sidebar-width); background-color: var(--vscode-sidebar);"
                 >
-                    <div
-                        class="h-14 p-4 border-b border-slate-800/60 flex justify-between items-center bg-slate-800/20 shrink-0"
-                    >
-                        <h2
-                            class="text-sm font-bold text-slate-200 truncate flex items-center gap-2"
-                            id="current-project-title"
-                        >
-                            <svg
-                                class="w-4 h-4 text-emerald-400"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                            >
-                                <path
-                                    d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
-                                ></path>
-                            </svg>
-                            Files
-                        </h2>
-                        <div
-                            class="flex items-center gap-1.5 hidden admin-only"
-                        >
-                            <button
-                                onclick="promptNewFolder()"
-                                class="btn-hover text-slate-500 hover:text-emerald-400 hover:bg-emerald-400/10 p-1.5 rounded-md transition-colors"
-                                id="btn-new-folder"
-                                title="New Folder"
-                            >
-                                <svg
-                                    class="w-4 h-4 pointer-events-none"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-                                    ></path>
-                                </svg>
-                            </button>
-                            <button
-                                onclick="deleteCurrentProject()"
-                                class="btn-hover text-slate-500 hover:text-red-400 hover:bg-red-400/10 p-1.5 rounded-md transition-colors"
-                                id="btn-delete-project"
-                                title="Delete Project"
-                            >
-                                <svg
-                                    class="w-4 h-4 pointer-events-none"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    ></path>
-                                </svg>
+                    <div class="sidebar-title flex justify-between items-center">
+                        <span class="tracking-wide">EXPLORER</span>
+                        <div class="flex items-center gap-1">
+                            <button class="hover:bg-white/10 p-1 rounded transition-colors text-[#cccccc]" title="Views and More Actions">
+                                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16"><path d="M3 5h10v1H3V5zm0 4h10v1H3V9zm0 4h10v1H3v-1z"/></svg>
                             </button>
                         </div>
                     </div>
-                    <div
-                        class="p-3 border-b border-slate-800/60 hidden admin-only bg-slate-800/10"
-                        id="container-new-file"
-                    >
-                        <form id="form-new-file" class="flex gap-2">
-                            <input
-                                type="text"
-                                id="input-file-name"
-                                placeholder="filename.js"
-                                class="w-full bg-slate-950/50 text-xs px-3 py-2 rounded-md border border-slate-700/50 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 text-slate-200 placeholder-slate-600 transition-all font-mono"
-                                required
-                            />
-                            <button
-                                type="submit"
-                                class="btn-hover bg-slate-800 hover:bg-emerald-500/20 hover:text-emerald-400 text-slate-400 aspect-square px-2.5 rounded-md text-sm border border-slate-700/50 hover:border-emerald-500/30 flex items-center justify-center"
-                            >
-                                <svg
-                                    class="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M12 4v16m8-8H4"
-                                    ></path>
-                                </svg>
-                            </button>
-                        </form>
-                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto">
+                        <!-- Project Accordion Header -->
+                        <div class="project-header" id="project-accordion-toggle">
+                            <div class="flex items-center gap-1 min-w-0 pr-2">
+                                <div class="chevron-icon open text-[#858585]">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5.5 4.5l5 3.5-5 3.5v-7z"/></svg>
+                                </div>
+                                <span class="truncate" id="current-project-title">PROJECT</span>
+                            </div>
+                            <div class="project-actions admin-only hidden">
+                                <button onclick="promptNewFile(event)" class="project-action-btn" title="New File">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                </button>
+                                <button onclick="promptNewFolder(event)" class="project-action-btn" title="New Folder">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                                </button>
+                                <button onclick="refreshFileTree(event)" class="project-action-btn" title="Refresh Explorer">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                </button>
+                                <button onclick="deleteCurrentProject(event)" class="project-action-btn text-red-400 hover:bg-red-500/20 hover:text-red-300" title="Delete Project">
+                                    <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+                        </div>
 
-                    <!-- Upload Document File -->
-                    <div
-                        class="p-3 border-b border-slate-800/60 hidden admin-only bg-slate-800/10"
-                    >
-                        <button
-                            onclick="
-                                document
-                                    .getElementById('file-upload-input')
-                                    .click()
-                            "
-                            class="w-full btn-hover bg-slate-800 hover:bg-purple-500/20 hover:text-purple-400 text-slate-400 px-3 py-2.5 rounded-md text-sm border border-slate-700/50 hover:border-purple-500/30 flex items-center justify-center gap-2 transition-all"
-                        >
-                            <svg
-                                class="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                                ></path>
-                            </svg>
-                            <span>Upload PDF/DOCX</span>
-                        </button>
-                        <input
-                            type="file"
-                            id="file-upload-input"
-                            accept=".pdf,.docx"
-                            class="hidden"
-                            onchange="uploadDocumentFile()"
-                        />
+                        <!-- File Tree List -->
+                        <div class="pb-4 scroll-smooth" id="files-list"></div>
                     </div>
+                </div>
 
-                    <div
-                        class="flex-1 overflow-y-auto p-2 space-y-1 scroll-smooth"
-                        id="files-list"
-                    ></div>
+                <!-- Search Side Bar -->
+                <div id="search-column" class="hidden h-full flex-col bg-[#252526] border-r border-[#1e1e1e] flex-shrink-0 z-10" style="width: var(--sidebar-width);">
+                    <div class="sidebar-title uppercase tracking-wider text-[11px] text-[#cccccc] px-5 py-3 font-semibold mb-2">Search</div>
+                    <div class="px-3 pb-2">
+                        <div class="flex items-center bg-[#3c3c3c] border border-transparent focus-within:border-[var(--vscode-active-border)] rounded-sm overflow-hidden">
+                            <input type="text" id="input-global-search" class="w-full bg-transparent text-white text-[13px] px-2 py-1 outline-none font-mono" placeholder="Search files (Ctrl+Shift+F)" />
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-y-auto pb-4" id="search-results-list">
+                         <div class="text-[13px] text-slate-500 text-center mt-6 p-4">Type to search across all files in your project.</div>
+                    </div>
                 </div>
 
                 <!-- Sidebar Resize Handle -->

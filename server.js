@@ -280,7 +280,7 @@ app.post('/api/projects/:id/files', requireAuth, async (req, res) => {
     }
 });
 
-// Upload file endpoint for PDF/DOCX
+// Upload file endpoint for PDF/DOCX/Code Files
 app.post('/api/projects/:id/files/upload', requireAuth, upload.single('file'), async (req, res) => {
     if (!client) return res.status(503).json({ error: 'Database not configured' });
 
@@ -292,32 +292,32 @@ app.post('/api/projects/:id/files/upload', requireAuth, upload.single('file'), a
     const fileName = req.file.originalname;
     const fileExt = fileName.split('.').pop().toLowerCase();
 
-    if (!['pdf', 'docx'].includes(fileExt)) {
-        return res.status(400).json({ error: 'Only PDF and DOCX files are allowed' });
-    }
-
     try {
         let contentToStore = '';
-        let actualFileType = 'document';
+        let actualFileType = 'code';
 
         if (fileExt === 'pdf') {
             contentToStore = req.file.buffer.toString('base64');
             actualFileType = 'pdf';
-        } else if (fileExt === 'docx') {
+        } else if (fileExt === 'docx' || fileExt === 'doc') {
             contentToStore = await extractDocxText(req.file.buffer);
             actualFileType = 'document';
+        } else {
+            // Assume standard code/text file
+            contentToStore = req.file.buffer.toString('utf-8');
+            actualFileType = 'code';
         }
 
         // Store the extracted text as content
         const result = await client.execute({
             sql: "INSERT INTO files (project_id, filename, content, file_type, original_filename) VALUES (?, ?, ?, ?, ?)",
-            args: [projectId, fileName.replace(/\.[^.]+$/, ''), contentToStore, actualFileType, fileName]
+            args: [projectId, fileName, contentToStore, actualFileType, fileName]
         });
 
         res.json({
             id: Number(result.lastInsertRowid),
             project_id: projectId,
-            filename: fileName.replace(/\.[^.]+$/, ''),
+            filename: fileName,
             original_filename: fileName,
             content: contentToStore,
             file_type: actualFileType
@@ -384,17 +384,20 @@ app.delete('/api/folders/:id', requireAuth, async (req, res) => {
     }
 });
 
-// Update a file
+// Update a file (content or filename)
 app.put('/api/files/:id', requireAuth, async (req, res) => {
     if (!client) return res.status(503).json({ error: 'Database not configured' });
 
-    const { content } = req.body;
+    const { content, filename } = req.body;
 
     try {
-        await client.execute({
-            sql: "UPDATE files SET content = ? WHERE id = ?",
-            args: [content, req.params.id]
-        });
+        if (content !== undefined && filename !== undefined) {
+             await client.execute({ sql: "UPDATE files SET content = ?, filename = ? WHERE id = ?", args: [content, filename, req.params.id] });
+        } else if (content !== undefined) {
+             await client.execute({ sql: "UPDATE files SET content = ? WHERE id = ?", args: [content, req.params.id] });
+        } else if (filename !== undefined) {
+             await client.execute({ sql: "UPDATE files SET filename = ? WHERE id = ?", args: [filename, req.params.id] });
+        }
         res.json({ message: "File updated successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });
