@@ -7,6 +7,7 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const JSZip = require('jszip');
 const { Document } = require('docx');
+const mammoth = require('mammoth'); // Added mammoth
 
 // Import libSQL client
 const { createClient } = require('@libsql/client');
@@ -82,57 +83,11 @@ async function extractPdfText(buffer) {
 // DOCX to HTML Parser (Better formatting preservation)
 async function extractDocxText(buffer) {
     try {
-        const zip = new JSZip();
-        await zip.loadAsync(buffer);
-
-        const docXml = await zip.file('word/document.xml')?.async('text');
-        if (!docXml) {
-            throw new Error('Invalid DOCX file structure');
-        }
-
-        // Convert DOCX XML to HTML with better formatting preservation
-        let html = docXml;
-
-        // Add proper paragraph breaks
-        html = html.replace(/<w:p>/g, '<p>');
-        html = html.replace(/<\/w:p>/g, '</p>');
-
-        // Handle bold text
-        html = html.replace(/<w:b[^>]*\/>/g, '').replace(/<w:rPr>[\s\S]*?<w:b[^>]*\/>/g, '');
-        html = html.replace(/<w:r>/g, '').replace(/<\/w:r>/g, '');
-
-        // Extract text runs with formatting
-        const paragraphs = docXml.match(/<w:p>[\s\S]*?<\/w:p>/g) || [];
-        let result = '<div style="line-height: 1.6; white-space: pre-wrap;">';
-
-        paragraphs.forEach(para => {
-            let paraContent = '';
-
-            // Extract text runs from paragraph
-            const textRuns = para.match(/<w:r>[\s\S]*?<\/w:r>/g) || [];
-
-            textRuns.forEach(run => {
-                // Check if bold
-                const isBold = /<w:b/.test(run);
-                // Check if italic
-                const isItalic = /<w:i/.test(run);
-
-                const textMatch = run.match(/<w:t[^>]*>([^<]*)<\/w:t>/);
-                if (textMatch && textMatch[1]) {
-                    let text = textMatch[1];
-                    if (isBold) text = `<strong>${text}</strong>`;
-                    if (isItalic) text = `<em>${text}</em>`;
-                    paraContent += text;
-                }
-            });
-
-            result += `<p>${paraContent || '&nbsp;'}</p>`;
-        });
-
-        result += '</div>';
-        return result;
-    } catch (err) {
-        throw new Error('Failed to parse DOCX: ' + err.message);
+        const result = await mammoth.convertToHtml({ buffer: buffer });
+        return result.value || '<p>Empty document</p>';
+    } catch (error) {
+        console.error('Error extracting DOCX HTML:', error);
+        return '<p>Error converting document.</p>';
     }
 }
 
@@ -342,18 +297,21 @@ app.post('/api/projects/:id/files/upload', requireAuth, upload.single('file'), a
     }
 
     try {
-        let extractedText = '';
+        let contentToStore = '';
+        let actualFileType = 'document';
 
         if (fileExt === 'pdf') {
-            extractedText = await extractPdfText(req.file.buffer);
+            contentToStore = req.file.buffer.toString('base64');
+            actualFileType = 'pdf';
         } else if (fileExt === 'docx') {
-            extractedText = await extractDocxText(req.file.buffer);
+            contentToStore = await extractDocxText(req.file.buffer);
+            actualFileType = 'document';
         }
 
         // Store the extracted text as content
         const result = await client.execute({
             sql: "INSERT INTO files (project_id, filename, content, file_type, original_filename) VALUES (?, ?, ?, ?, ?)",
-            args: [projectId, fileName.replace(/\.[^.]+$/, ''), extractedText, 'document', fileName]
+            args: [projectId, fileName.replace(/\.[^.]+$/, ''), contentToStore, actualFileType, fileName]
         });
 
         res.json({
@@ -361,8 +319,8 @@ app.post('/api/projects/:id/files/upload', requireAuth, upload.single('file'), a
             project_id: projectId,
             filename: fileName.replace(/\.[^.]+$/, ''),
             original_filename: fileName,
-            content: extractedText,
-            file_type: 'document'
+            content: contentToStore,
+            file_type: actualFileType
         });
     } catch (err) {
         res.status(400).json({ error: 'Failed to process file: ' + err.message });
