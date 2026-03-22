@@ -59,15 +59,7 @@ const requireAuth = (req, res, next) => {
 // Multer Configuration for File Uploads
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
-    fileFilter: (req, file, cb) => {
-        const allowedMimes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-        if (allowedMimes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only PDF and DOCX files are allowed'));
-        }
-    }
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
 // PDF to Text Parser

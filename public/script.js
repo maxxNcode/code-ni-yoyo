@@ -16,7 +16,7 @@
         // Elements
         let quillDocsEditor = null;
         const elMobileOverlay = document.getElementById('mobile-overlay');
-        const elBtnToggleFiles = document.getElementById('btn-toggle-files');
+        // const elBtnToggleFiles = document.getElementById('btn-toggle-files'); // Removed as redundant
         const elFilesList = document.getElementById('files-list');
         const elFilesColumn = document.getElementById('files-column');
         const elEditorArea = document.getElementById('editor-area');
@@ -243,6 +243,7 @@
         function toggleFiles() {
             isFilesVisible = !isFilesVisible;
             const searchColumn = document.getElementById('search-column');
+            const abExplorer = document.getElementById('ab-explorer');
             const abSearch = document.getElementById('ab-search');
             const isSearchActive = abSearch && abSearch.classList.contains('active');
 
@@ -260,14 +261,18 @@
                     elMobileOverlay.classList.remove('hidden');
                     setTimeout(() => elMobileOverlay.classList.remove('opacity-0'), 10);
                 }
-                elBtnToggleFiles.classList.add('text-emerald-400', 'bg-slate-800/50');
+                // elBtnToggleFiles?.classList.add('text-emerald-400', 'bg-slate-800/50'); // Removed redundant styling
             } else {
                 document.body.classList.remove('sidebar-open');
+                // Remove active classes from activity bar icons when sidebar is closed
+                abExplorer?.classList.remove('active');
+                abSearch?.classList.remove('active');
+
                 if (window.innerWidth >= 768) {
                     elFilesColumn.style.display = 'none';
                     if (searchColumn) searchColumn.style.display = 'none';
                 }
-                elBtnToggleFiles.classList.remove('text-emerald-400', 'bg-slate-800/50');
+                // elBtnToggleFiles?.classList.remove('text-emerald-400', 'bg-slate-800/50'); // Removed redundant styling
                 elMobileOverlay.classList.add('opacity-0');
                 setTimeout(() => elMobileOverlay.classList.add('hidden'), 300);
             }
@@ -326,32 +331,34 @@
             const searchColumn = document.getElementById('search-column');
             const abExplorer = document.getElementById('ab-explorer');
             const abSearch = document.getElementById('ab-search');
+
+            const targetBtn = view === 'explorer' ? abExplorer : abSearch;
+            const isCurrentlyActive = targetBtn.classList.contains('active');
             
+            if (isCurrentlyActive && isFilesVisible) {
+                // If clicking the already active tab while sidebar is open, hide it
+                toggleFiles();
+                return;
+            }
+
+            // Otherwise, make sure sidebar is open and show the correct view
+            if (!isFilesVisible) {
+                toggleFiles();
+            }
+
+            // Switch views
+            abExplorer.classList.remove('active');
+            if (abSearch) abSearch.classList.remove('active');
+            targetBtn.classList.add('active');
+
             if (view === 'explorer') {
-                if (abExplorer.classList.contains('active') && isFilesVisible) {
-                    toggleFiles(); // Hide entirely
-                } else {
-                    if (!isFilesVisible) toggleFiles();
-                    elFilesColumn.classList.remove('hidden');
-                    elFilesColumn.classList.add('flex');
-                    if (searchColumn) searchColumn.classList.add('hidden');
-                    abExplorer.classList.add('active');
-                    if (abSearch) abSearch.classList.remove('active');
-                }
-            } else if (view === 'search') {
-                if (abSearch.classList.contains('active') && isFilesVisible) {
-                    toggleFiles(); // Hide entirely
-                } else {
-                    if (!isFilesVisible) toggleFiles();
-                    elFilesColumn.classList.add('hidden');
-                    elFilesColumn.classList.remove('flex');
-                    if (searchColumn) {
-                        searchColumn.classList.remove('hidden');
-                        searchColumn.classList.add('flex');
-                        document.getElementById('input-global-search')?.focus();
-                    }
-                    if (abSearch) abSearch.classList.add('active');
-                    abExplorer.classList.remove('active');
+                if (searchColumn) searchColumn.style.display = 'none';
+                elFilesColumn.style.display = 'flex';
+            } else {
+                elFilesColumn.style.display = 'none';
+                if (searchColumn) {
+                    searchColumn.style.display = 'flex';
+                    document.getElementById('input-global-search')?.focus();
                 }
             }
         }
@@ -546,7 +553,7 @@
             currentFileId = null;
             fileCache = {}; // Clear file cache when switching projects
             elCurrentProjectTitle.innerText = name;
-            elBtnToggleFiles.classList.remove('hidden');
+            // elBtnToggleFiles.classList.remove('hidden'); // Removed redundant toggle button hiding
 
             // Start files open automatically
             if (!isFilesVisible) toggleFiles();
@@ -666,7 +673,7 @@
                 fileContainer.appendChild(fileHeader);
                 
                 if (f.content && f.file_type === 'code') {
-                    const lines = f.content.split('\\n');
+                    const lines = f.content.split('\n');
                     let matchesFound = 0;
                     lines.forEach((line, index) => {
                         if (line.toLowerCase().includes(term)) {
