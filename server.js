@@ -233,7 +233,7 @@ app.get('/api/projects/:id/files', async (req, res) => {
 
     try {
         const result = await client.execute({
-            sql: "SELECT id, filename FROM files WHERE project_id = ? ORDER BY id ASC",
+            sql: "SELECT id, filename, content, file_type FROM files WHERE project_id = ? ORDER BY id ASC",
             args: [req.params.id]
         });
         res.json(result.rows);
@@ -269,12 +269,28 @@ app.post('/api/projects/:id/files', requireAuth, async (req, res) => {
 
     if (!filename) return res.status(400).json({ error: "Filename is required" });
 
+    const fileExt = filename.split('.').pop().toLowerCase();
+    let actualFileType = 'code';
+    let finalContent = content || '';
+
+    if (fileExt === 'pdf') {
+        actualFileType = 'pdf';
+        // Base64 valid blank PDF
+        finalContent = finalContent || "JVBERi0xLjAKMSAwIG9iaiA8PC9UeXBlIC9DYXRhbG9nIC9QYWdlcyAyIDAgUj4+IGVuZG9iaiAyIDAgb2JqIDw8L1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDE+PiBlbmRvYmogMyAwIG9iaiA8PC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgNjEyIDc5Ml0+PiBlbmRvYmogeHJlZiAwIDQgMDAwMDAwMDAwMCA2NTUzNSBmIDAwMDAwMDAwMDkgMDAwMDAgbiAwMDAwMDAwMDYyIDAwMDAwIG4gMDAwMDAwMDExNSAwMDAwMCBuIHRyYWlsZXIgPDwvU2l6ZSA0IC9Sb290IDEgMCBSPj4gc3RhcnR4cmVmDEVPZg==";
+    } else if (fileExt === 'docx' || fileExt === 'doc') {
+        actualFileType = 'document';
+        finalContent = finalContent || "<p><br></p>";
+    } else {
+        actualFileType = 'code';
+        finalContent = finalContent || '// Empty file...';
+    }
+
     try {
         const result = await client.execute({
-            sql: "INSERT INTO files (project_id, filename, content, file_type) VALUES (?, ?, ?, ?)",
-            args: [projectId, filename, content || '', 'code']
+            sql: "INSERT INTO files (project_id, filename, content, file_type, original_filename) VALUES (?, ?, ?, ?, ?)",
+            args: [projectId, filename, finalContent, actualFileType, filename]
         });
-        res.json({ id: Number(result.lastInsertRowid), project_id: projectId, filename, content, file_type: 'code' });
+        res.json({ id: Number(result.lastInsertRowid), project_id: projectId, filename, content: finalContent, file_type: actualFileType });
     } catch (err) {
         res.status(400).json({ error: err.message });
     }

@@ -120,8 +120,8 @@
                     automaticLayout: true,
                     wordWrap: 'off',
                     minimap: { enabled: false },
-                    fontSize: 13,
-                    fontFamily: '"Fira Code", monospace'
+                    fontSize: 14, // Changed from 13 to 14
+                    fontFamily: 'Consolas, "Courier New", monospace' // Force monospace to fix cursor offset
                 });
             });
 
@@ -203,15 +203,59 @@
         }
 
         // --- Layout Logic ---
-        let isFilesVisible = false;
+        let isFilesVisible = window.innerWidth >= 768;
+
+        // Toggle Sidebar Views from Activity Bar
+        function toggleSidebarView(view) {
+            const searchColumn = document.getElementById('search-column');
+            const abExplorer = document.getElementById('ab-explorer');
+            const abSearch = document.getElementById('ab-search');
+
+            const targetBtn = view === 'explorer' ? abExplorer : abSearch;
+            
+            if (targetBtn && targetBtn.classList.contains('active')) {
+                toggleFiles();
+                return;
+            }
+
+            abExplorer.classList.remove('active');
+            if (abSearch) abSearch.classList.remove('active');
+            targetBtn.classList.add('active');
+
+            if (!isFilesVisible) {
+                toggleFiles();
+            } else {
+                if (window.innerWidth >= 768 || document.body.classList.contains('sidebar-open')) {
+                    if (view === 'explorer') {
+                        if (searchColumn) searchColumn.style.display = 'none';
+                        elFilesColumn.style.display = 'flex';
+                    } else {
+                        elFilesColumn.style.display = 'none';
+                        if (searchColumn) {
+                            searchColumn.style.display = 'flex';
+                            document.getElementById('input-global-search')?.focus();
+                        }
+                    }
+                }
+            }
+        }
 
         function toggleFiles() {
             isFilesVisible = !isFilesVisible;
+            const searchColumn = document.getElementById('search-column');
+            const abSearch = document.getElementById('ab-search');
+            const isSearchActive = abSearch && abSearch.classList.contains('active');
 
             if (isFilesVisible) {
                 document.body.classList.add('sidebar-open');
                 if (window.innerWidth >= 768) {
-                    elFilesColumn.style.display = 'flex';
+                    if (isSearchActive && searchColumn) {
+                        searchColumn.style.display = 'flex';
+                        elFilesColumn.style.display = 'none';
+                    } else {
+                        elFilesColumn.style.display = 'flex';
+                        if (searchColumn) searchColumn.style.display = 'none';
+                    }
                 } else {
                     elMobileOverlay.classList.remove('hidden');
                     setTimeout(() => elMobileOverlay.classList.remove('opacity-0'), 10);
@@ -221,6 +265,7 @@
                 document.body.classList.remove('sidebar-open');
                 if (window.innerWidth >= 768) {
                     elFilesColumn.style.display = 'none';
+                    if (searchColumn) searchColumn.style.display = 'none';
                 }
                 elBtnToggleFiles.classList.remove('text-emerald-400', 'bg-slate-800/50');
                 elMobileOverlay.classList.add('opacity-0');
@@ -238,10 +283,21 @@
         }
 
         window.addEventListener('resize', () => {
+            const searchColumn = document.getElementById('search-column');
+            const abSearch = document.getElementById('ab-search');
+            const isSearchActive = abSearch && abSearch.classList.contains('active');
+
             if (window.innerWidth >= 768 && isFilesVisible) {
-                elFilesColumn.style.display = 'flex';
+                if (isSearchActive && searchColumn) {
+                    searchColumn.style.display = 'flex';
+                    elFilesColumn.style.display = 'none';
+                } else {
+                    elFilesColumn.style.display = 'flex';
+                    if (searchColumn) searchColumn.style.display = 'none';
+                }
             } else if (window.innerWidth >= 768 && !isFilesVisible) {
                 elFilesColumn.style.display = 'none';
+                if (searchColumn) searchColumn.style.display = 'none';
             }
         });
 
@@ -574,37 +630,77 @@
             }
 
             resultsContainer.innerHTML = '';
+            
             results.forEach(f => {
-                const item = document.createElement('div');
-                item.className = 'px-3 py-1.5 cursor-pointer hover:bg-[#2a2d2e] border border-transparent hover:border-[#3c3c3c] group transition-colors';
+                const fileContainer = document.createElement('div');
+                fileContainer.className = 'w-full mb-1';
                 
                 const fileNameOnly = f.filename.split('/').pop();
                 const folderPath = f.filename.includes('/') ? f.filename.substring(0, f.filename.lastIndexOf('/')) : '';
-
-                // Optional snippet extraction
-                let snippetHtml = '';
-                if (f.content && f.content.toLowerCase().includes(term) && f.file_type === 'code') {
-                    const idx = f.content.toLowerCase().indexOf(term);
-                    const start = Math.max(0, idx - 15);
-                    const matchText = f.content.substring(idx, idx + term.length);
-                    const snippet = (start > 0 ? '...' : '') + escapeHTML(f.content.substring(start, idx)) + `<span class="bg-emerald-500/30 text-emerald-300 px-0.5 rounded-sm">${escapeHTML(matchText)}</span>` + escapeHTML(f.content.substring(idx + term.length, Math.min(idx + term.length + 30, f.content.length))) + (idx + term.length + 30 < f.content.length ? '...' : '');
-                    snippetHtml = `<div class="text-[11px] text-slate-400 font-mono truncate mt-0.5 ml-[22px] overflow-hidden">${snippet}</div>`;
-                }
-
-                item.innerHTML = `
-                    <div class="flex items-center gap-1.5 text-[13px]">
-                        ${getFileIcon(fileNameOnly)}
-                        <span class="text-[#cccccc] group-hover:text-white truncate">${escapeHTML(fileNameOnly)}</span>
-                        ${folderPath ? `<span class="text-[11px] text-slate-500 truncate ml-1 flex-1 text-right">${escapeHTML(folderPath)}</span>` : ''}
-                    </div>
-                    ${snippetHtml}
+                
+                const fileHeader = document.createElement('div');
+                fileHeader.className = 'flex items-center gap-1.5 px-3 py-1 text-[13px] cursor-pointer hover:bg-[#2a2d2e] group transition-colors';
+                fileHeader.innerHTML = `
+                    <div class="chevron-icon open translate-y-[1px] text-slate-400"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M5.5 4.5l5 3.5-5 3.5v-7z"/></svg></div>
+                    ${getFileIcon(fileNameOnly)}
+                    <span class="text-[#cccccc] group-hover:text-white truncate font-medium">${escapeHTML(fileNameOnly)}</span>
+                    ${folderPath ? `<span class="text-[11px] text-slate-500 truncate ml-1 flex-1 text-right">${escapeHTML(folderPath)}</span>` : ''}
                 `;
                 
-                item.onclick = () => {
-                    selectFile(f.id, f.filename);
-                    if (window.innerWidth < 768) toggleFiles();
+                const snippetsDiv = document.createElement('div');
+                snippetsDiv.className = 'w-full flex-col flex transition-all';
+                
+                fileHeader.onclick = () => {
+                    const isOpen = snippetsDiv.classList.contains('hidden');
+                    if (isOpen) {
+                        snippetsDiv.classList.remove('hidden');
+                        fileHeader.querySelector('.chevron-icon').classList.add('open');
+                    } else {
+                        snippetsDiv.classList.add('hidden');
+                        fileHeader.querySelector('.chevron-icon').classList.remove('open');
+                    }
                 };
-                resultsContainer.appendChild(item);
+                
+                fileContainer.appendChild(fileHeader);
+                
+                if (f.content && f.file_type === 'code') {
+                    const lines = f.content.split('\\n');
+                    let matchesFound = 0;
+                    lines.forEach((line, index) => {
+                        if (line.toLowerCase().includes(term)) {
+                            matchesFound++;
+                            const lineDiv = document.createElement('div');
+                            lineDiv.className = 'pl-[38px] pr-3 py-0.5 text-[12px] font-mono cursor-pointer hover:bg-[#2a2d2e] text-slate-400 group truncate';
+                            
+                            const idx = line.toLowerCase().indexOf(term);
+                            const pre = line.substring(Math.max(0, idx - 20), idx);
+                            const matchText = line.substring(idx, idx + term.length);
+                            const post = line.substring(idx + term.length, Math.min(line.length, idx + term.length + 60));
+                            
+                            lineDiv.innerHTML = `
+                                <span class="group-hover:text-white transition-colors relative">
+                                    ${pre.length > 0 && Math.max(0, idx - 20) > 0 ? '...' : ''}${escapeHTML(pre)}<span class="bg-[#515c6a]/40 text-[#bbd1e8] rounded-sm highlight-term">${escapeHTML(matchText)}</span>${escapeHTML(post)}${idx + term.length + 60 < line.length ? '...' : ''}
+                                </span>
+                            `;
+                            
+                            lineDiv.onclick = (e) => {
+                                e.stopPropagation();
+                                selectFile(f.id, f.filename);
+                                if (window.innerWidth < 768) toggleFiles();
+                            };
+                            snippetsDiv.appendChild(lineDiv);
+                        }
+                    });
+                    
+                    if (matchesFound === 0 && f.filename.toLowerCase().includes(term)) {
+                        snippetsDiv.innerHTML = `<div class="pl-[38px] pr-3 py-0.5 text-[12px] text-slate-500 italic cursor-pointer hover:bg-[#2a2d2e]" onclick="selectFile(${f.id}, '${f.filename}'); if(window.innerWidth < 768) toggleFiles();">Filename matches...</div>`;
+                    }
+                } else if (f.filename.toLowerCase().includes(term)) {
+                    snippetsDiv.innerHTML = `<div class="pl-[38px] pr-3 py-0.5 text-[12px] text-slate-500 italic cursor-pointer hover:bg-[#2a2d2e]" onclick="selectFile(${f.id}, '${f.filename}'); if(window.innerWidth < 768) toggleFiles();">Filename matches...</div>`;
+                }
+                
+                fileContainer.appendChild(snippetsDiv);
+                resultsContainer.appendChild(fileContainer);
             });
         }
 
@@ -808,7 +904,7 @@
                     if (type === 'file') {
                         const newFile = await api(`/projects/${currentProjectId}/files`, 'POST', {
                             filename: fullPath,
-                            content: '// Empty file...'
+                            content: ''
                         });
                         await loadFiles();
                         selectFile(newFile.id, newFile.filename);
