@@ -274,6 +274,7 @@
         }
 
         function showDashboard() {
+            document.getElementById('main-header').classList.remove('hidden');
             document.getElementById('editor-view').classList.add('hidden');
             document.getElementById('dashboard-view').classList.remove('hidden');
             if (isFilesVisible) toggleFiles();
@@ -537,6 +538,7 @@
         }
 
         async function selectProject(id, name) {
+            document.getElementById('main-header').classList.add('hidden');
             document.getElementById('dashboard-view').classList.add('hidden');
             document.getElementById('editor-view').classList.remove('hidden');
 
