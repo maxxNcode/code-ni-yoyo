@@ -19,10 +19,6 @@ const PORT = process.env.PORT || 3000;
 const TURSO_DB_URL = process.env.TURSO_DB_URL;
 const TURSO_DB_AUTH_TOKEN = process.env.TURSO_DB_AUTH_TOKEN;
 
-// Log for debugging (remove in production)
-console.log('TURSO_DB_URL:', TURSO_DB_URL ? 'set' : 'NOT SET');
-console.log('TURSO_DB_AUTH_TOKEN:', TURSO_DB_AUTH_TOKEN ? 'set' : 'NOT SET');
-
 // Create libSQL client - only if credentials are available
 let client = null;
 if (TURSO_DB_URL && TURSO_DB_AUTH_TOKEN) {
