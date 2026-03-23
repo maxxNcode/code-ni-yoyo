@@ -618,30 +618,29 @@
             performGlobalSearch(e.target.value);
         });
 
-        function performGlobalSearch(query) {
+        async function performGlobalSearch(query) {
             const resultsContainer = document.getElementById('search-results-list');
             if (!resultsContainer) return;
 
-            if (!query.trim() || !currentProjectFiles.length) {
+            if (!query.trim()) {
                 resultsContainer.innerHTML = '<div class="text-[13px] text-slate-500 text-center mt-6 p-4">Type to search across all files in your project.</div>';
                 return;
             }
 
-            const term = query.toLowerCase();
-            const results = currentProjectFiles.filter(f => 
-                f.filename.toLowerCase().includes(term) || 
-                (f.content && f.content.toLowerCase().includes(term))
-            );
+            try {
+                // Use server-side search API for better performance on remote databases
+                const results = await api(`/projects/${currentProjectId}/search?q=${encodeURIComponent(query)}`);
 
-            if (results.length === 0) {
-                resultsContainer.innerHTML = '<div class="text-[13px] text-slate-500 text-center mt-6 p-4">No results found.</div>';
-                return;
-            }
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="text-[13px] text-slate-500 text-center mt-6 p-4">No results found.</div>';
+                    return;
+                }
 
-            resultsContainer.innerHTML = '';
+                resultsContainer.innerHTML = '';
+                const term = query.toLowerCase();
             
-            results.forEach(f => {
-                const fileContainer = document.createElement('div');
+                results.forEach(f => {
+                    const fileContainer = document.createElement('div');
                 fileContainer.className = 'w-full mb-1';
                 
                 const fileNameOnly = f.filename.split('/').pop();
@@ -709,8 +708,11 @@
                 }
                 
                 fileContainer.appendChild(snippetsDiv);
-                resultsContainer.appendChild(fileContainer);
-            });
+                    resultsContainer.appendChild(fileContainer);
+                });
+            } catch (err) {
+                resultsContainer.innerHTML = '<div class="text-[13px] text-red-400 text-center mt-6 p-4">Search failed.</div>';
+            }
         }
 
         // --- File Logic ---

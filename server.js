@@ -102,71 +102,27 @@ async function initDatabase() {
     }
 
     try {
-        // Create Projects Table
-        await client.execute(`
-            CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL
-            )
-        `);
+        // Use batch to reduce roundtrips for initial table creation
+        await client.batch([
+            "CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, filename TEXT NOT NULL, content TEXT, FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE)",
+            "CREATE TABLE IF NOT EXISTS folders (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, path TEXT NOT NULL, FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE, UNIQUE(project_id, path))",
+            "CREATE TABLE IF NOT EXISTS highlights (id INTEGER PRIMARY KEY AUTOINCREMENT, file_id INTEGER, start_pos INTEGER, end_pos INTEGER, highlighted_text TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE)"
+        ]);
 
-        // Create Files Table
-        await client.execute(`
-            CREATE TABLE IF NOT EXISTS files (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project_id INTEGER,
-                filename TEXT NOT NULL,
-                content TEXT,
-                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
-            )
-        `);
+        // Sequential migrations (safe to fail if column exists)
+        const migrations = [
+            "ALTER TABLE projects ADD COLUMN passcode TEXT",
+            "ALTER TABLE files ADD COLUMN file_type TEXT DEFAULT 'code'",
+            "ALTER TABLE files ADD COLUMN original_filename TEXT"
+        ];
 
-        // Migration: Add passcode column if it doesn't exist
-        try {
-            await client.execute("ALTER TABLE projects ADD COLUMN passcode TEXT");
-            console.log("Added passcode column to projects table.");
-        } catch (e) {
-            // Column likely already exists
-        }
-
-        // Create Folders Table for empty folders
-        await client.execute(`
-            CREATE TABLE IF NOT EXISTS folders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                project_id INTEGER,
-                path TEXT NOT NULL,
-                FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
-                UNIQUE(project_id, path)
-            )
-        `);
-
-        // Create Highlights Table
-        await client.execute(`
-            CREATE TABLE IF NOT EXISTS highlights (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_id INTEGER,
-                start_pos INTEGER,
-                end_pos INTEGER,
-                highlighted_text TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(file_id) REFERENCES files(id) ON DELETE CASCADE
-            )
-        `);
-
-        // Migration: Add file_type column if it doesn't exist
-        try {
-            await client.execute("ALTER TABLE files ADD COLUMN file_type TEXT DEFAULT 'code'");
-            console.log("Added file_type column to files table.");
-        } catch (e) {
-            // Column likely already exists
-        }
-
-        // Migration: Add original_filename column if it doesn't exist
-        try {
-            await client.execute("ALTER TABLE files ADD COLUMN original_filename TEXT");
-            console.log("Added original_filename column to files table.");
-        } catch (e) {
-            // Column likely already exists
+        for (const sql of migrations) {
+            try {
+                await client.execute(sql);
+            } catch (e) {
+                // Ignore "duplicate column" errors
+            }
         }
 
         // Enable WAL mode if using local SQLite for much better performance
@@ -246,14 +202,31 @@ app.post('/api/projects', requireAuth, async (req, res) => {
     }
 });
 
-// Get files for a specific project
+// Get files for a specific project (Lightweight - excludes content)
 app.get('/api/projects/:id/files', async (req, res) => {
     if (!client) return res.status(503).json({ error: 'Database not configured' });
 
     try {
         const result = await client.execute({
-            sql: "SELECT id, filename, content, file_type FROM files WHERE project_id = ? ORDER BY id ASC",
+            sql: "SELECT id, filename, file_type FROM files WHERE project_id = ? ORDER BY id ASC",
             args: [req.params.id]
+        });
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Search within project files (Server-side)
+app.get('/api/projects/:id/search', async (req, res) => {
+    if (!client) return res.status(503).json({ error: 'Database not configured' });
+    const { q } = req.query;
+    if (!q) return res.json([]);
+
+    try {
+        const result = await client.execute({
+            sql: "SELECT id, filename, content, file_type FROM files WHERE project_id = ? AND (filename LIKE ? OR content LIKE ?) LIMIT 50",
+            args: [req.params.id, `%${q}%`, `%${q}%`]
         });
         res.json(result.rows);
     } catch (err) {
