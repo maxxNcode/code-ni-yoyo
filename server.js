@@ -19,12 +19,21 @@ const PORT = process.env.PORT || 3000;
 const TURSO_DB_URL = process.env.TURSO_DB_URL;
 const TURSO_DB_AUTH_TOKEN = process.env.TURSO_DB_AUTH_TOKEN;
 
-// Create libSQL client - only if credentials are available
+// Create libSQL client - uses Turso if credentials exist, otherwise falls back to local SQLite
 let client = null;
+let isLocal = false;
+
 if (TURSO_DB_URL && TURSO_DB_AUTH_TOKEN) {
+    console.log("Connecting to Turso remote database...");
     client = createClient({
         url: TURSO_DB_URL,
         authToken: TURSO_DB_AUTH_TOKEN
+    });
+} else {
+    console.warn("TURSO_DB_URL or AUTH_TOKEN missing. Using local database.sqlite");
+    isLocal = true;
+    client = createClient({
+        url: "file:database.sqlite"
     });
 }
 
@@ -160,13 +169,35 @@ async function initDatabase() {
             // Column likely already exists
         }
 
-        console.log("Connected to the Turso SQLite database.");
+        // Enable WAL mode if using local SQLite for much better performance
+        if (isLocal) {
+            try {
+                await client.execute("PRAGMA journal_mode=WAL");
+                console.log("WAL mode enabled for local database.");
+            } catch (walErr) {
+                console.warn("Failed to enable WAL mode: " + walErr.message);
+            }
+        }
+
+        console.log("Database initialized successfully.");
     } catch (err) {
-        console.error("Error initializing database: " + err.message);
+        console.error("CRITICAL: Error initializing database: " + err.message);
+        console.error(err.stack);
     }
 }
 
-initDatabase();
+// Initialize database once on startup
+let dbInitialized = initDatabase();
+
+// Middleware to ensure DB is initialized before handling requests
+app.use(async (req, res, next) => {
+    try {
+        await dbInitialized;
+        next();
+    } catch (err) {
+        res.status(500).json({ error: "Database initialization failed: " + err.message });
+    }
+});
 
 // --- API ROUTES ---
 
